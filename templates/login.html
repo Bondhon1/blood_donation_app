@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+{% block content %}
+
+<div class="form-container">
+    <h2 class="text-center">Login</h2>
+    <form method="POST" class="needs-validation" novalidate>
+        {{ form.hidden_tag() }}
+        
+        <div class="mb-3">
+            <label class="form-label">{{ form.email.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                {{ form.email(class="form-control", placeholder="Enter your email") }}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">{{ form.password.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                {{ form.password(class="form-control", placeholder="Enter your password") }}
+                <button type="button" class="btn btn-outline-secondary togglePassword">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        
+
+        <button type="submit" class="btn btn-primary btn-animated w-100">
+            <i class="fas fa-sign-in-alt"></i> Login
+        </button>
+    </form>
+</div>
+
+<script>
+    document.querySelectorAll(".togglePassword").forEach(button => {
+        button.addEventListener("click", function () {
+            let passwordField = this.previousElementSibling;
+            let icon = this.querySelector("i");
+
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                passwordField.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        });
+    });
+</script>
+
+
+{% endblock %}

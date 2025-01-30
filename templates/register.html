@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+
+<div class="form-container">
+    <h2 class="text-center">Register</h2>
+    <form method="POST" class="needs-validation" novalidate>
+        {{ form.hidden_tag() }}
+
+        <div class="mb-3">
+            <label class="form-label">{{ form.username.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                {{ form.username(class="form-control", placeholder="Choose a username", id="username") }}
+            </div>
+            <small id="usernameError" class="text-danger"></small> <!-- Error Message -->
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">{{ form.email.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                {{ form.email(class="form-control", placeholder="Enter your email", id="email") }}
+            </div>
+            <small id="emailError" class="text-danger"></small> <!-- Error Message -->
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">{{ form.password.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                {{ form.password(class="form-control", placeholder="Create a password") }}
+                <button type="button" class="btn btn-outline-secondary togglePassword">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">{{ form.confirm_password.label }}</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
+                <button type="button" class="btn btn-outline-secondary togglePassword">
+                    <i class="fas fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        
+
+       
+
+        <button type="submit" class="btn btn-success btn-animated w-100" id="registerBtn" disabled>
+            <i class="fas fa-user-plus"></i> Register
+        </button>
+    </form>
+</div>
+<script>
+    function checkUserOrEmail(field) {
+        let value = document.getElementById(field).value;
+        let errorField = document.getElementById(field + "Error");
+        let registerBtn = document.getElementById("registerBtn");
+
+        if (value.length < 3) {
+            errorField.innerText = "";
+            validateForm();  // Check if button should be enabled
+            return;
+        }
+
+        fetch("/check_user", {
+            method: "POST",
+            body: JSON.stringify({ [field]: value }),
+            headers: { "Content-Type": "application/json" }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.exists) {
+                errorField.innerText = data.message;
+            } else {
+                errorField.innerText = "";
+            }
+            validateForm();  // Check if button should be enabled
+        });
+    }
+
+    function validateForm() {
+        let usernameError = document.getElementById("usernameError").innerText;
+        let emailError = document.getElementById("emailError").innerText;
+        let usernameValue = document.getElementById("username").value;
+        let emailValue = document.getElementById("email").value;
+        let passwordValue = document.getElementById("password").value;
+        let confirmPasswordValue = document.getElementById("confirm_password").value;
+        let registerBtn = document.getElementById("registerBtn");
+
+        // Enable button only if no errors and all fields are filled
+        if (!usernameError && !emailError && usernameValue.length > 3 && emailValue.length > 5 && passwordValue.length > 5 && confirmPasswordValue === passwordValue) {
+            registerBtn.disabled = false;
+        } else {
+            registerBtn.disabled = true;
+        }
+    }
+
+    document.getElementById("username").addEventListener("input", () => checkUserOrEmail("username"));
+    document.getElementById("email").addEventListener("input", () => checkUserOrEmail("email"));
+    document.getElementById("password").addEventListener("input", validateForm);
+    document.getElementById("confirm_password").addEventListener("input", validateForm);
+    document.querySelectorAll(".togglePassword").forEach(button => {
+        button.addEventListener("click", function () {
+            let passwordField = this.previousElementSibling;
+            let icon = this.querySelector("i");
+
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                passwordField.type = "password";
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        });
+    });
+</script>
+
+{% endblock %}
