@@ -125,3 +125,61 @@ button {
 button:hover {
     background-color: #b71c1c;
 }
+/* Navbar */
+.navbar {
+    padding: 10px 20px;
+}
+.navbar .btn {
+    font-size: 1.1rem;
+}
+
+/* Search Bar */
+.search-container {
+    position: relative;
+}
+#searchBox {
+    width: 200px;
+    padding: 5px 10px;
+}
+.search-popup {
+    display: none;
+    position: absolute;
+    top: 40px;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    width: 200px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+}
+
+/* Dropdown Popups */
+.dropdown-popup {
+    display: none;
+    position: absolute;
+    top: 50px;
+    right: 10px;
+    background: white;
+    width: 200px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 5px;
+}
+.dropdown-popup p {
+    margin: 0;
+    padding: 5px;
+}
+.dropdown-popup a {
+    display: block;
+    padding: 5px;
+    text-decoration: none;
+    color: black;
+}
+.dropdown-popup a:hover {
+    background: #ddd;
+}
+
+/* Animations */
+.btn:hover {
+    transform: scale(1.05);
+}

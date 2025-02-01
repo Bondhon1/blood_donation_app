@@ -1,0 +1,36 @@
+{% extends "base2.html" %}
+{% block title %}News Feed{% endblock %}{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center">Blood Donation Requests</h2>
+    <p class="text-center">Find people in need and donate blood to save lives!</p>
+
+    {% if donation_requests %}
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-danger">
+                <tr>
+                    <th>#</th>
+                    <th>Blood Group</th>
+                    <th>Location</th>
+                    <th>Contact</th>
+                    <th>Posted By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request in donation_requests %}
+                <tr>
+                    <td>{{ request.id }}</td>
+                    <td>{{ request.blood_group }}</td>
+                    <td>{{ request.location }}</td>
+                    <td>{{ request.contact }}</td>
+                    <td>{{ request.posted_by }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-muted">No donation requests available.</p>
+    {% endif %}
+</div>
+{% endblock %}
