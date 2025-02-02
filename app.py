@@ -4,14 +4,26 @@ from models import db, User
 from forms import RegistrationForm, LoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
+migrate = Migrate(app, db) 
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 
 @app.route('/')
 def home():
-    return redirect(url_for('news_feed')) if 'user_id' in session else render_template('home.html')
+    if 'user_id' in session:
+        user = User.query.filter_by(id=session['user_id']).first()
+        if user:
+            return redirect(url_for('news_feed', username=user.username))  # ✅ Pass username
+    return render_template('home.html')
 
 ### ✅ API: Check Username & Email Availability
 @app.route('/check_user', methods=['POST'])
@@ -50,11 +62,39 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
+
+        send_verification_email(new_user.email)
         
         flash("Registration successful! Please login.", "success")
         return redirect(url_for('login'))
     
     return render_template('register.html', form=form)
+
+
+def send_verification_email(email):
+    token = generate_email_token(email)
+    msg = Message("Verify Your Email", sender="your_email@example.com", recipients=[email])
+    msg.body = f"Click the link to verify your email: {url_for('verify_email', token=token, _external=True)}"
+    mail.send(msg)
+@app.route('/verify_email/<token>')
+def verify_email(token):
+    try:
+        email = serializer.loads(token, salt="email-confirm", max_age=3600)  # Expires in 1 hour
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            user.email_verified = True
+            db.session.commit()
+            flash("Email verified successfully!", "success")
+            return redirect(url_for('news_feed', username=user.username))
+    except:
+        flash("Invalid or expired token!", "danger")
+
+    return redirect(url_for('home'))
+
+
+def generate_email_token(email):
+    return serializer.dumps(email, salt="email-confirm")
 
 ### ✅ API: User Login (Redirect to News Feed)
 @app.route('/login', methods=['GET', 'POST'])
@@ -90,7 +130,14 @@ def news_feed(username):
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    notifications = ["New blood request in your area!", "Urgent O- needed!"]
+    notifications = []
+    
+    # ✅ Add email verification notification if the user is not verified
+    if not user.email_verified:
+        notifications.append("Please verify your email address. <a href='/resend_verification'>Resend</a>")
+
+    notifications += ["New blood request in your area!", "Urgent O- needed!"]
+
     donation_requests = [
         {"id": 1, "blood_group": "A+", "location": "Dhaka", "contact": "017xxxxxxxx", "posted_by": "John Doe"},
         {"id": 2, "blood_group": "O-", "location": "Chittagong", "contact": "018xxxxxxxx", "posted_by": "Jane Smith"},
@@ -98,18 +145,22 @@ def news_feed(username):
 
     return render_template('news_feed.html', username=username, user=user, notifications=notifications, donation_requests=donation_requests)
 
+@app.route('/resend_verification')
+def resend_verification():
+    if 'user_id' not in session:
+        flash("Please log in first.", "warning")
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(id=session['user_id']).first()
+    if user and not user.email_verified:
+        send_verification_email(user.email)
+        flash("Verification email sent!", "info")
+    else:
+        flash("Your email is already verified!", "success")
+
+    return redirect(url_for('news_feed', username=user.username))
 
 
-### ✅ API: Fetch Blood Donation Requests (JSON)
-@app.route('/api/news_feed', methods=['GET'])
-def get_news_feed():
-    # Dummy data for now (Replace with database query later)
-    donation_requests = [
-        {"id": 1, "blood_group": "A+", "location": "Dhaka", "contact": "017xxxxxxxx", "posted_by": "John Doe"},
-        {"id": 2, "blood_group": "O-", "location": "Chittagong", "contact": "018xxxxxxxx", "posted_by": "Jane Smith"},
-    ]
-
-    return jsonify(donation_requests)
 
 @app.route('/profile/<username>')
 def profile(username):
