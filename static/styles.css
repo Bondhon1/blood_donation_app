@@ -184,3 +184,26 @@ button:hover {
 .btn:hover {
     transform: scale(1.05);
 }
+.navbar-nav .nav-link {
+    color: #f8f9fa;  /* Light gray text (default) */
+    transition: all 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-link:hover {
+    background-color: #d6e0f5;  /* Light blue */
+    color: #003366;  /* Dark blue text for contrast */
+    border-radius: 5px;
+}
+
+.navbar-nav .nav-link.active {
+    background-color: #c4d3ff; /* Softer blue for active state */
+    color: #002244; /* Dark navy text */
+    border-radius: 5px;
+    font-weight: bold;
+}
+.navbar-toggler {
+    width: auto !important;
+    padding: 5px 10px !important;
+    font-size: 1rem !important;
+    border: 1px solid white !important;
+}

@@ -51,4 +51,17 @@ document.addEventListener("DOMContentLoaded", function () {
             profilePopup.classList.remove("show");
         }
     });
+
+    // 🔹 Auto-Close Navbar on Mobile after clicking a link
+    let navbarToggler = document.querySelector(".navbar-toggler");
+    let navbarCollapse = document.querySelector(".navbar-collapse");
+    let navLinks = document.querySelectorAll(".nav-link");
+
+    navLinks.forEach(link => {
+        link.addEventListener("click", function () {
+            if (window.innerWidth < 992) {  // Close only on mobile screens
+                navbarToggler.click();
+            }
+        });
+    });
 });

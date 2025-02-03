@@ -148,19 +148,29 @@ def news_feed(username):
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    notifications = session.get('notifications', [])  # Retrieve existing notifications
+    # ✅ Reset notifications for a fresh session
+    if 'notifications' not in session:
+        session['notifications'] = []
 
-    # ✅ Add email verification notification if the user is not verified
-    if not user.email_verified and "Please verify your email address." not in notifications:
-        notifications.append("Please verify your email address. <a href='/resend_verification'>Resend</a>")
+    notifications = session['notifications']
 
-    # ✅ Add new notifications dynamically
+    # ✅ Remove email verification notification if already verified
+    verification_message = "Please verify your email address. <a href='/resend_verification'>Resend</a>"
+    if user.email_verified and verification_message in notifications:
+        notifications.remove(verification_message)
+
+    # ✅ Add email verification notification only if needed
+    if not user.email_verified and verification_message not in notifications:
+        notifications.append(verification_message)
+
+    # ✅ Add new notifications (no duplicates)
     new_notifications = ["New blood request in your area!", "Urgent O- needed!"]
     for notif in new_notifications:
         if notif not in notifications:
             notifications.append(notif)
 
-    session['notifications'] = notifications  # Store notifications in session
+    # ✅ Store only unique notifications in session
+    session['notifications'] = list(set(notifications))
 
     donation_requests = [
         {"id": 1, "blood_group": "A+", "location": "Dhaka", "contact": "017xxxxxxxx", "posted_by": "John Doe"},
