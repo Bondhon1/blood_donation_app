@@ -1,6 +1,136 @@
-{% extends "base.html" %}
-{% block title %}Profile{% endblock %}
+{% extends "base2.html" %}
 
 {% block content %}
+<div class="container mt-4">
+    <div class="card shadow-lg p-4">
+        <!-- Profile Picture Upload -->
+        <div class="d-flex flex-column align-items-center">
+            <div class="position-relative">
+                <img id="profile-pic" 
+                     src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" 
+                     alt="Profile Picture" 
+                     class="rounded-circle border shadow-lg" width="150" height="150">
+                <input type="file" id="profile-pic-input" class="d-none" accept="image/*">
+                <button class="btn btn-sm btn-outline-secondary position-absolute bottom-0 end-0 rounded-circle shadow"
+                        onclick="document.getElementById('profile-pic-input').click();">
+                    <i class="fas fa-camera"></i>
+                </button>
+            </div>
+            <h3 class="mt-3 fw-bold">{{ user.username }}</h3>
+        </div>
 
-{ % endblock %}
+        <!-- Editable Profile Fields -->
+        <div class="mt-4">
+            <form id="profile-form">
+                {% set fields = [
+                    ("name", "Full Name", "user", user.name),
+                    ("username", "Username", "user-tag", user.username),
+                    ("phone", "Phone", "phone", user.phone),
+                    ("address", "Address", "map-marker-alt", user.address),
+                    ("blood_group", "Blood Group", "tint", user.blood_group),
+                    ("medical_history", "Medical History", "notes-medical", user.medical_history)
+                ] %}
+
+                {% for field_id, label, icon, value in fields %}
+                <div class="mb-3">
+                    <label class="fw-bold">{{ label }}</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-{{ icon }}"></i></span>
+                        <input type="text" class="form-control editable-field" id="{{ field_id }}" value="{{ value }}" readonly>
+                        <button class="btn btn-sm btn-outline-primary edit-btn" type="button" onclick="enableEdit('{{ field_id }}')">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+
+                <!-- Email (Non-editable) -->
+                <div class="mb-3">
+                    <label class="fw-bold">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                        <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                    </div>
+                </div>
+
+                <!-- Save Changes Button -->
+                <button class="btn btn-success mt-3 w-100 shadow" type="button" onclick="saveProfile()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.getElementById("profile-pic-input").addEventListener("change", function (event) {
+        let file = event.target.files[0];
+        if (file) {
+            let reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById("profile-pic").src = e.target.result;
+                uploadProfilePicture(file);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+});
+
+function enableEdit(fieldId) {
+    let field = document.getElementById(fieldId);
+    field.removeAttribute("readonly");
+    field.focus();
+    field.classList.add("border-primary");
+
+    // Reset focus and remove border when user clicks outside
+    field.addEventListener("blur", function() {
+        field.setAttribute("readonly", true);
+        field.classList.remove("border-primary");
+    });
+}
+
+function saveProfile() {
+    let updatedData = {
+        name: document.getElementById("name").value,
+        username: document.getElementById("username").value,
+        phone: document.getElementById("phone").value,
+        address: document.getElementById("address").value,
+        blood_group: document.getElementById("blood_group").value,
+        medical_history: document.getElementById("medical_history").value
+    };
+
+    fetch("/update_profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+    })
+    .catch(error => console.error("Error:", error));
+}
+
+function uploadProfilePicture(file) {
+    let formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/upload_profile_pic", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.image_url) {
+            document.getElementById("profile-pic").src = data.image_url;
+        }
+        alert(data.message);
+    })
+    .catch(error => console.error("Error:", error));
+}
+</script>
+
+<!-- FontAwesome for Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+{% endblock %}

@@ -7,11 +7,26 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
+import os
+from werkzeug.utils import secure_filename
+from flask import current_app
+
 
 app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
+
+UPLOAD_FOLDER = 'static/profile_pics'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -55,20 +70,22 @@ def register():
             flash(message, "danger")
             return redirect(url_for('register'))
         
+        # ✅ Fix: Hash password in the User model constructor, not here
         new_user = User(
             username=form.username.data, 
             email=form.email.data, 
-            password=generate_password_hash(form.password.data)
+            password=form.password.data  # Don't hash here, let model handle it
         )
         db.session.add(new_user)
         db.session.commit()
 
         send_verification_email(new_user.email)
         
-        flash("Registration successful! Please login.", "success")
+        flash("Registration successful! Please verify your email before logging in.", "success")
         return redirect(url_for('login'))
     
     return render_template('register.html', form=form)
+
 
 
 def send_verification_email(email):
@@ -102,13 +119,14 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        
-        if user and check_password_hash(user.password, form.password.data):
+
+        if user and user.check_password(form.password.data):  # ✅ Using method in User model
             session['user_id'] = user.id
             flash("Login successful!", "success")
             return redirect(url_for('news_feed', username=user.username))  # ✅ Fixed
         
-        flash("Invalid credentials", "danger")
+        flash("Invalid credentials", "danger")  # ✅ Ensure message shows
+        return redirect(url_for('login'))  # ✅ Redirect after flashing message
     
     return render_template('login.html', form=form)
 
@@ -130,20 +148,26 @@ def news_feed(username):
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    notifications = []
-    
+    notifications = session.get('notifications', [])  # Retrieve existing notifications
+
     # ✅ Add email verification notification if the user is not verified
-    if not user.email_verified:
+    if not user.email_verified and "Please verify your email address." not in notifications:
         notifications.append("Please verify your email address. <a href='/resend_verification'>Resend</a>")
 
-    notifications += ["New blood request in your area!", "Urgent O- needed!"]
+    # ✅ Add new notifications dynamically
+    new_notifications = ["New blood request in your area!", "Urgent O- needed!"]
+    for notif in new_notifications:
+        if notif not in notifications:
+            notifications.append(notif)
+
+    session['notifications'] = notifications  # Store notifications in session
 
     donation_requests = [
         {"id": 1, "blood_group": "A+", "location": "Dhaka", "contact": "017xxxxxxxx", "posted_by": "John Doe"},
         {"id": 2, "blood_group": "O-", "location": "Chittagong", "contact": "018xxxxxxxx", "posted_by": "Jane Smith"},
     ]
 
-    return render_template('news_feed.html', username=username, user=user, notifications=notifications, donation_requests=donation_requests)
+    return render_template('news_feed.html', username=username, user=user, donation_requests=donation_requests)
 
 @app.route('/resend_verification')
 def resend_verification():
@@ -160,13 +184,65 @@ def resend_verification():
 
     return redirect(url_for('news_feed', username=user.username))
 
-
+@app.context_processor
+def inject_user():
+    user = None
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+    return dict(user=user)
 
 @app.route('/profile/<username>')
 def profile(username):
     # Fetch user profile based on username
     return render_template('profile.html', username=username)
 
+@app.route('/update_profile', methods=['POST'])
+def update_profile():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    user = User.query.filter_by(id=session['user_id']).first()
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    data = request.json
+    user.name = data.get('name', user.name)
+    user.username = data.get('username', user.username)
+    user.phone = data.get('phone', user.phone)
+    user.address = data.get('address', user.address)
+    user.blood_group = data.get('blood_group', user.blood_group)
+    user.medical_history = data.get('medical_history', user.medical_history)
+
+    db.session.commit()
+    return jsonify({"message": "Profile updated successfully!"})
+
+@app.route('/upload_profile_pic', methods=['POST'])
+def upload_profile_pic():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({"message": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"user_{user.id}_" + file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        user.profile_picture = filename
+        db.session.commit()
+
+        return jsonify({"message": "Profile picture updated", "image_url": file_path})
+    
+    return jsonify({"message": "Invalid file type"}), 400
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

@@ -146,6 +146,7 @@ button:hover {
     position: absolute;
     top: 40px;
     left: 0;
+    color: black;
     background: white;
     border: 1px solid #ddd;
     width: 200px;
