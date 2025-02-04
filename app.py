@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
 from config import Config
-from models import db, User
+from models import db, User, BloodRequest
 from forms import RegistrationForm, LoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -11,18 +11,20 @@ import os
 from werkzeug.utils import secure_filename
 from flask import current_app
 
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
 
-UPLOAD_FOLDER = 'static/profile_pics'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -203,8 +205,11 @@ def inject_user():
 
 @app.route('/profile/<username>')
 def profile(username):
-    # Fetch user profile based on username
-    return render_template('profile.html', username=username)
+    user = User.query.filter_by(username=username).first_or_404()
+    blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
+    
+    return render_template('profile.html', user=user, blood_requests=blood_requests)
+
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
@@ -228,6 +233,7 @@ def update_profile():
 
 @app.route('/upload_profile_pic', methods=['POST'])
 def upload_profile_pic():
+    print("🔹 Upload Profile Pic API Called!")
     if 'user_id' not in session:
         return jsonify({"message": "Unauthorized"}), 401
 
@@ -243,16 +249,54 @@ def upload_profile_pic():
         return jsonify({"message": "No selected file"}), 400
 
     if file and allowed_file(file.filename):
+        # ✅ Generate a secure filename
         filename = secure_filename(f"user_{user.id}_" + file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+        # ✅ Save file in static/profile_pics
         file.save(file_path)
 
+        # ✅ Store the filename in the database
         user.profile_picture = filename
         db.session.commit()
 
-        return jsonify({"message": "Profile picture updated", "image_url": file_path})
+        return jsonify({"message": "Profile picture updated!", "image_url": url_for('static', filename='profile_pics/' + filename)})
     
     return jsonify({"message": "Invalid file type"}), 400
+
+
+@app.route('/upload_cover_photo', methods=['POST'])
+def upload_cover_photo():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    user = User.query.get(session['user_id'])
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if 'file' not in request.files:
+        return jsonify({"message": "No file uploaded"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(f"user_{user.id}_cover_" + file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # ✅ Save the file
+        file.save(file_path)
+
+        # ✅ Store in DB
+        user.cover_photo = filename
+        db.session.commit()
+
+        return jsonify({"message": "Cover photo updated!", "image_url": url_for('static', filename='profile_pics/' + filename)})
+    
+    return jsonify({"message": "Invalid file type"}), 400
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

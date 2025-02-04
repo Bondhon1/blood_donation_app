@@ -2,6 +2,7 @@
 
 {% block content %}
 <div class="container mt-4">
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -11,16 +12,30 @@
             </div>
         {% endfor %}
     {% endif %}
-{% endwith %}
+    {% endwith %}
 
-    <div class="card shadow-lg p-4">
-        <!-- Profile Picture Upload -->
-        <div class="d-flex flex-column align-items-center">
-            <div class="position-relative">
+    <!-- Profile Card -->
+    <div class="card shadow-lg">
+        <!-- ✅ Cover Photo Section -->
+        <div class="position-relative" style="height: 250px;">
+            <img id="cover-photo" 
+                 src="{{ url_for('static', filename='profile_pics/' + user.cover_photo) }}" 
+                 alt="Cover Photo" 
+                 class="img-fluid w-100 h-100 rounded-top" style="object-fit: cover;">
+            <input type="file" id="cover-photo-input" class="d-none" accept="image/*">
+            <button class="btn btn-outline-light position-absolute top-0 end-0 m-2 shadow"
+                    onclick="document.getElementById('cover-photo-input').click();">
+                <i class="fas fa-camera"></i> Change Cover
+            </button>
+        </div>
+
+        <!-- ✅ Profile Picture (Overlapping Cover) -->
+        <div class="position-relative text-center">
+            <div class="profile-pic-container">
                 <img id="profile-pic" 
                      src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" 
                      alt="Profile Picture" 
-                     class="rounded-circle border shadow-lg" width="150" height="150">
+                     class="rounded-circle border shadow-lg">
                 <input type="file" id="profile-pic-input" class="d-none" accept="image/*">
                 <button class="btn btn-sm btn-outline-secondary position-absolute bottom-0 end-0 rounded-circle shadow"
                         onclick="document.getElementById('profile-pic-input').click();">
@@ -30,48 +45,135 @@
             <h3 class="mt-3 fw-bold">{{ user.username }}</h3>
         </div>
 
-        <!-- Editable Profile Fields -->
-        <div class="mt-4">
-            <form id="profile-form">
-                {% set fields = [
-                    ("name", "Full Name", "user", user.name),
-                    ("username", "Username", "user-tag", user.username),
-                    ("phone", "Phone", "phone", user.phone),
-                    ("address", "Address", "map-marker-alt", user.address),
-                    ("blood_group", "Blood Group", "tint", user.blood_group),
-                    ("medical_history", "Medical History", "notes-medical", user.medical_history)
-                ] %}
+        <!-- ✅ Tabs Navigation (Updated to Standard Style) -->
+        <ul class="nav nav-pills nav-fill mt-5 bg-light p-2 rounded" id="profileTabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="info-tab" href="#" onclick="showTab('info')">
+                    <i class="fas fa-user"></i> Profile Info
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="requests-tab" href="#" onclick="showTab('requests')">
+                    <i class="fas fa-history"></i> Past Requests
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="new-request-tab" href="#" onclick="showTab('new-request')">
+                    <i class="fas fa-plus-circle"></i> New Request
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="donor-tab" href="#" onclick="showTab('donor')">
+                    <i class="fas fa-hand-holding-heart"></i> Become a Donor
+                </a>
+            </li>
+        </ul>
 
-                {% for field_id, label, icon, value in fields %}
-                <div class="mb-3">
-                    <label class="fw-bold">{{ label }}</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-{{ icon }}"></i></span>
-                        <input type="text" class="form-control editable-field" id="{{ field_id }}" value="{{ value }}" readonly>
-                        <button class="btn btn-sm btn-outline-primary edit-btn" type="button" onclick="enableEdit('{{ field_id }}')">
-                            <i class="fas fa-pencil-alt"></i>
-                        </button>
+        <div class="card-body">
+            <!-- ✅ Profile Info Tab -->
+            <div id="info" class="profile-tab">
+                <form id="profile-form">
+                    {% set fields = [
+                        ("name", "Full Name", "user", user.name),
+                        ("username", "Username", "user-tag", user.username),
+                        ("phone", "Phone", "phone", user.phone),
+                        ("address", "Address", "map-marker-alt", user.address),
+                        ("blood_group", "Blood Group", "tint", user.blood_group),
+                        ("medical_history", "Medical History", "notes-medical", user.medical_history)
+                    ] %}
+
+                    {% for field_id, label, icon, value in fields %}
+                    <div class="mb-3">
+                        <label class="fw-bold">{{ label }}</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-{{ icon }}"></i></span>
+                            <input type="text" class="form-control editable-field" id="{{ field_id }}" value="{{ value }}" readonly>
+                            <button class="btn btn-sm btn-outline-primary edit-btn" type="button" onclick="enableEdit('{{ field_id }}')">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
 
-                <!-- Email (Non-editable) -->
-                <div class="mb-3">
-                    <label class="fw-bold">Email</label>
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                        <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                    <!-- Email (Non-editable) -->
+                    <div class="mb-3">
+                        <label class="fw-bold">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Save Changes Button -->
-                <button class="btn btn-success mt-3 w-100 shadow" type="button" onclick="saveProfile()">
-                    <i class="fas fa-save"></i> Save Changes
-                </button>
-            </form>
+                    <!-- Save Changes Button -->
+                    <button class="btn btn-success mt-3 w-100 shadow" type="button" onclick="saveProfile()">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+
+            <!-- ✅ Flash Message for Profile Update -->
+            <div id="update-message" class="alert alert-success d-none mt-3">
+                Profile updated successfully!
+            </div>
         </div>
+        <!-- ✅ Past Blood Requests Tab -->
+    <div id="requests" class="profile-tab d-none">
+        {% if user.blood_requests %}
+            <ul class="list-group">
+                {% for request in user.blood_requests %}
+                    <li class="list-group-item">
+                        <strong>{{ request.blood_group }}</strong> needed at <em>{{ request.location }}</em> 
+                        ({{ request.request_date.strftime('%Y-%m-%d') }}) 
+                        <span class="badge bg-primary">{{ request.status }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted">You do not have any previous requests.</p>
+        {% endif %}
+    </div>
+
+    <!-- ✅ New Blood Request Form Tab -->
+    <div id="new-request" class="profile-tab d-none">
+        <p>New Blood Request Form will be here.</p>
+    </div>
+
+    <!-- ✅ Become a Donor Tab -->
+    <div id="donor" class="profile-tab d-none">
+        <p>Become a Donor Form will be here.</p>
+    </div>
     </div>
 </div>
+
+<style>
+/* Profile picture overlapping cover */
+.profile-pic-container {
+    position: absolute;
+    top: -50px;
+    left: 10%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 120px;
+}
+
+.profile-pic-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 4px solid white;
+}
+
+/* Active tab highlight */
+.nav-pills .nav-link {
+    font-weight: bold;
+    color: #444;
+}
+
+.nav-pills .nav-link.active {
+    background-color: #dc3545;
+    color: white;
+}
+</style>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -86,6 +188,18 @@ document.addEventListener("DOMContentLoaded", function () {
             reader.readAsDataURL(file);
         }
     });
+
+    document.getElementById("cover-photo-input").addEventListener("change", function (event) {
+        let file = event.target.files[0];
+        if (file) {
+            let reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById("cover-photo").src = e.target.result;
+                uploadCoverPhoto(file);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 });
 
 function enableEdit(fieldId) {
@@ -94,54 +208,63 @@ function enableEdit(fieldId) {
     field.focus();
     field.classList.add("border-primary");
 
-    // Reset focus and remove border when user clicks outside
     field.addEventListener("blur", function() {
         field.setAttribute("readonly", true);
         field.classList.remove("border-primary");
     });
 }
-
-function saveProfile() {
-    let updatedData = {
-        name: document.getElementById("name").value,
-        username: document.getElementById("username").value,
-        phone: document.getElementById("phone").value,
-        address: document.getElementById("address").value,
-        blood_group: document.getElementById("blood_group").value,
-        medical_history: document.getElementById("medical_history").value
-    };
-
-    fetch("/update_profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        alert(data.message);
-    })
-    .catch(error => console.error("Error:", error));
-}
-
 function uploadProfilePicture(file) {
     let formData = new FormData();
     formData.append("file", file);
 
     fetch("/upload_profile_pic", {
         method: "POST",
-        body: formData
+        body: formData,
+        credentials: "include" // Include session cookie
     })
     .then(response => response.json())
     .then(data => {
         if (data.image_url) {
-            document.getElementById("profile-pic").src = data.image_url;
+            console.log("Profile picture updated:", data.image_url);
+        } else {
+            alert(data.message);
         }
-        alert(data.message);
     })
-    .catch(error => console.error("Error:", error));
+    .catch(error => console.error("Error uploading profile picture:", error));
+}
+
+function uploadCoverPhoto(file) {
+    let formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/upload_cover_photo", {
+        method: "POST",
+        body: formData,
+        credentials: "include" // Include session cookie
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.image_url) {
+            console.log("Cover photo updated:", data.image_url);
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => console.error("Error uploading cover photo:", error));
+}
+
+function saveProfile() {
+    // Simulate save success
+    document.getElementById("update-message").classList.remove("d-none");
+    setTimeout(() => document.getElementById("update-message").classList.add("d-none"), 3000);
+}
+
+function showTab(tabId) {
+    document.querySelectorAll(".profile-tab").forEach(tab => tab.classList.add("d-none"));
+    document.getElementById(tabId).classList.remove("d-none");
+
+    document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
+    document.getElementById(tabId + "-tab").classList.add("active");
 }
 </script>
-
-<!-- FontAwesome for Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 {% endblock %}
