@@ -14,72 +14,46 @@
     {% endif %}
     {% endwith %}
 
-    <!-- Profile Card -->
     <div class="card shadow-lg">
-        <!-- ✅ Cover Photo Section -->
-        <div class="position-relative" style="height: 250px;">
-            <img id="cover-photo" 
-                 src="{{ url_for('static', filename='profile_pics/' + user.cover_photo) }}" 
-                 alt="Cover Photo" 
-                 class="img-fluid w-100 h-100 rounded-top" style="object-fit: cover;">
-            <input type="file" id="cover-photo-input" class="d-none" accept="image/*">
-            <button class="btn btn-outline-light position-absolute top-0 end-0 m-2 shadow"
-                    onclick="document.getElementById('cover-photo-input').click();">
+        <!-- Cover Photo -->
+        <div class="position-relative cover-container">
+            <img id="cover-photo" src="{{ url_for('static', filename='profile_pics/' + user.cover_photo) }}" class="img-fluid cover-image">
+            <input type="file" id="cover-photo-input" class="d-none" accept="image/*" onchange="uploadImage('cover')">
+            <button class="btn btn-outline-light position-absolute top-0 end-0 m-2 shadow" onclick="document.getElementById('cover-photo-input').click();">
                 <i class="fas fa-camera"></i> Change Cover
             </button>
         </div>
-
-        <!-- ✅ Profile Picture (Overlapping Cover) -->
-        <div class="position-relative text-center">
-            <div class="profile-pic-container">
-                <img id="profile-pic" 
-                     src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" 
-                     alt="Profile Picture" 
-                     class="rounded-circle border shadow-lg">
-                <input type="file" id="profile-pic-input" class="d-none" accept="image/*">
-                <button class="btn btn-sm btn-outline-secondary position-absolute bottom-0 end-0 rounded-circle shadow"
-                        onclick="document.getElementById('profile-pic-input').click();">
-                    <i class="fas fa-camera"></i>
-                </button>
-            </div>
+        
+        <!-- Profile Picture -->
+        <div class="position-relative text-center profile-container">
+            <img id="profile-pic" src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" class="rounded-circle profile-pic">
+            <input type="file" id="profile-pic-input" class="d-none" accept="image/*" onchange="uploadImage('profile')">
+            <button class="btn btn-sm btn-outline-secondary position-absolute edit-profile-btn" onclick="document.getElementById('profile-pic-input').click();">
+                <i class="fas fa-camera"></i>
+            </button>
             <h3 class="mt-3 fw-bold">{{ user.username }}</h3>
         </div>
 
-        <!-- ✅ Tabs Navigation (Updated to Standard Style) -->
+
+        <!-- Tabs Navigation -->
         <ul class="nav nav-pills nav-fill mt-5 bg-light p-2 rounded" id="profileTabs">
-            <li class="nav-item">
-                <a class="nav-link active" id="info-tab" href="#" onclick="showTab('info')">
-                    <i class="fas fa-user"></i> Profile Info
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="requests-tab" href="#" onclick="showTab('requests')">
-                    <i class="fas fa-history"></i> Past Requests
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="new-request-tab" href="#" onclick="showTab('new-request')">
-                    <i class="fas fa-plus-circle"></i> New Request
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="donor-tab" href="#" onclick="showTab('donor')">
-                    <i class="fas fa-hand-holding-heart"></i> Become a Donor
-                </a>
-            </li>
+            <li class="nav-item"><a class="nav-link active" id="info-tab" href="#" onclick="showTab(event, 'info')"><i class="fas fa-user"></i> Profile Info</a></li>
+            <li class="nav-item"><a class="nav-link" id="requests-tab" href="#" onclick="showTab(event, 'requests')"><i class="fas fa-history"></i> Past Requests</a></li>
+            <li class="nav-item"><a class="nav-link" id="new-request-tab" href="#" onclick="showTab(event, 'new-request')"><i class="fas fa-plus-circle"></i> New Request</a></li>
+            <li class="nav-item"><a class="nav-link" id="donor-tab" href="#" onclick="showTab(event, 'donor')"><i class="fas fa-hand-holding-heart"></i> Become a Donor</a></li>
         </ul>
 
         <div class="card-body">
-            <!-- ✅ Profile Info Tab -->
-            <div id="info" class="profile-tab">
+            <!-- Profile Info Tab -->
+            <div id="info" class="profile-tab active-tab">
                 <form id="profile-form">
                     {% set fields = [
                         ("name", "Full Name", "user", user.name),
                         ("username", "Username", "user-tag", user.username),
                         ("phone", "Phone", "phone", user.phone),
-                        ("address", "Address", "map-marker-alt", user.address),
                         ("blood_group", "Blood Group", "tint", user.blood_group),
-                        ("medical_history", "Medical History", "notes-medical", user.medical_history)
+                        ("medical_history", "Medical History", "notes-medical", user.medical_history),
+                        ("address", "Address", "map-marker-alt", user.address)
                     ] %}
 
                     {% for field_id, label, icon, value in fields %}
@@ -94,177 +68,334 @@
                         </div>
                     </div>
                     {% endfor %}
-
-                    <!-- Email (Non-editable) -->
                     <div class="mb-3">
-                        <label class="fw-bold">Email</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                            <input type="email" class="form-control" value="{{ user.email }}" readonly>
-                        </div>
+                        <label class="fw-bold">Division</label>
+                        <select id="division" class="form-select" onchange="loadDistricts()">
+                            <option value="">Select Division</option>
+                            {% for division in divisions %}
+                                <option value="{{ division.id }}" {% if user.division_id == division.id %}selected{% endif %}>
+                                    {{ division.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
                     </div>
-
-                    <!-- Save Changes Button -->
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">District</label>
+                        <select id="district" class="form-select" onchange="loadUpazilas()">
+                            <option value="">Select District</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">Upazila/City Corporation</label>
+                        <select id="upazila" class="form-select">
+                            <option value="">Select Upazila/City Corporation</option>
+                        </select>
+                    </div>
+                    
                     <button class="btn btn-success mt-3 w-100 shadow" type="button" onclick="saveProfile()">
                         <i class="fas fa-save"></i> Save Changes
                     </button>
+                    
                 </form>
             </div>
 
-            <!-- ✅ Flash Message for Profile Update -->
-            <div id="update-message" class="alert alert-success d-none mt-3">
-                Profile updated successfully!
-            </div>
+            <!-- Past Requests Tab -->
+            <div id="requests" class="profile-tab">Past Requests Content</div>
+
+            <!-- New Request Tab -->
+            <div id="new-request" class="profile-tab">New Request Content</div>
+
+            <!-- Become a Donor Tab -->
+            <div id="donor" class="profile-tab">Become a Donor Content</div>
         </div>
-        <!-- ✅ Past Blood Requests Tab -->
-    <div id="requests" class="profile-tab d-none">
-        {% if user.blood_requests %}
-            <ul class="list-group">
-                {% for request in user.blood_requests %}
-                    <li class="list-group-item">
-                        <strong>{{ request.blood_group }}</strong> needed at <em>{{ request.location }}</em> 
-                        ({{ request.request_date.strftime('%Y-%m-%d') }}) 
-                        <span class="badge bg-primary">{{ request.status }}</span>
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p class="text-muted">You do not have any previous requests.</p>
-        {% endif %}
-    </div>
-
-    <!-- ✅ New Blood Request Form Tab -->
-    <div id="new-request" class="profile-tab d-none">
-        <p>New Blood Request Form will be here.</p>
-    </div>
-
-    <!-- ✅ Become a Donor Tab -->
-    <div id="donor" class="profile-tab d-none">
-        <p>Become a Donor Form will be here.</p>
-    </div>
     </div>
 </div>
 
-<style>
-/* Profile picture overlapping cover */
-.profile-pic-container {
-    position: absolute;
-    top: -50px;
-    left: 10%;
-    transform: translateX(-50%);
-    width: 120px;
-    height: 120px;
+<!-- JavaScript -->
+<script>
+
+function showTab(event, tabId) {
+    event.preventDefault();
+    
+    // Hide all tabs
+    document.querySelectorAll('.profile-tab').forEach(tab => tab.style.display = 'none');
+    
+    // Remove active class from all nav links
+    document.querySelectorAll('#profileTabs .nav-link').forEach(link => link.classList.remove('active'));
+    
+    // Show the selected tab
+    document.getElementById(tabId).style.display = 'block';
+    
+    // Add active class to clicked tab
+    event.currentTarget.classList.add('active');
 }
 
-.profile-pic-container img {
+
+function enableEdit(fieldId) {
+    let inputField = document.getElementById(fieldId);
+    let button = inputField.nextElementSibling; // Get the edit button
+
+    if (inputField.readOnly) {
+        inputField.readOnly = false;
+        inputField.classList.add("border-primary"); // Highlight editable field
+        button.innerHTML = '<i class="fas fa-check"></i>'; // Change to checkmark
+        button.classList.replace("btn-outline-primary", "btn-success");
+    } else {
+        inputField.readOnly = true;
+        inputField.classList.remove("border-primary");
+        button.innerHTML = '<i class="fas fa-pencil-alt"></i>'; // Restore edit icon
+        button.classList.replace("btn-success", "btn-outline-primary");
+
+        // ✅ Auto-save when editing is done
+        saveProfile(fieldId, inputField.value);
+    }
+}
+
+
+function uploadImage(type) {
+    let inputElement = type === "profile" ? document.getElementById("profile-pic-input") : document.getElementById("cover-photo-input");
+    let file = inputElement.files[0];
+
+    if (!file) {
+        alert("Please select an image!");
+        return;
+    }
+
+    let formData = new FormData();
+    formData.append("file", file);
+
+    let uploadUrl = type === "profile" ? "/upload_profile_pic" : "/upload_cover_photo";
+
+    fetch(uploadUrl, {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message.includes("updated")) {
+            let imgElement = type === "profile" ? document.getElementById("profile-pic") : document.getElementById("cover-photo");
+            imgElement.src = data.image_url + "?t=" + new Date().getTime(); // Prevents cache issues
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(error => console.error("Upload error:", error));
+}
+// Set initial active tab
+document.querySelectorAll('.profile-tab').forEach(tab => tab.style.display = 'none');
+document.getElementById('info').style.display = 'block';
+
+function loadDistricts() {
+    const divisionId = document.getElementById('division').value;
+    fetch(`/get_districts/${divisionId}`)
+        .then(response => response.json())
+        .then(data => {
+            const districtSelect = document.getElementById('district');
+            districtSelect.innerHTML = `<option value="">Select District</option>`;
+            data.forEach(district => {
+                districtSelect.innerHTML += `<option value="${district.id}">${district.name}</option>`;
+            });
+        });
+}
+
+function loadUpazilas() {
+    const districtId = document.getElementById('district').value;
+    fetch(`/get_upazilas/${districtId}`)
+        .then(response => response.json())
+        .then(data => {
+            const upazilaSelect = document.getElementById('upazila');
+            upazilaSelect.innerHTML = `<option value="">Select Upazila/City Corporation</option>`;
+            data.forEach(upazila => {
+                upazilaSelect.innerHTML += `<option value="${upazila.id}">${upazila.name}</option>`;
+            });
+        });
+}
+
+function saveProfile(fieldId = null, value = null) {
+    let updatedData = {
+        name: document.getElementById("name").value,
+        username: document.getElementById("username").value,
+        phone: document.getElementById("phone").value,
+        blood_group: document.getElementById("blood_group").value,
+        medical_history: document.getElementById("medical_history").value,
+        address: document.getElementById("address").value,
+        division_id: document.getElementById("division").value,
+        district_id: document.getElementById("district").value,
+        upazila_id: document.getElementById("upazila").value
+    };
+
+    // If called for a single field edit, update only that field
+    if (fieldId && value !== null) {
+        updatedData = { [fieldId]: value };
+    }
+
+    fetch("/update_profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+    })
+    .catch(error => console.error("Error:", error));
+}
+
+</script>
+
+<!-- Styles -->
+<style>
+/* Profile Picture & Container Fix */
+.profile-container {
+    position: relative;
+    margin-top: -60px; /* Adjust for better alignment */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Profile Picture */
+.profile-pic {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border: 5px solid white;
+    border-radius: 50%;
+    position: relative;
+    left: -450px; /* Move left slightly */
+    z-index: 2;
+}
+
+/* Username below Profile Pic */
+.profile-container h3 {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Profile Picture Upload Button */
+.edit-profile-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: white;
+    border: 2px solid #ddd;
+    position: relative;
+    top: 110px;
+    right: 1020px; /* Adjust so it doesn’t overlap */
+    cursor: pointer;
+}
+
+/* Cover Photo */
+.cover-container {
+    height: 250px;
+    overflow: hidden;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    position: relative;
+}
+
+.cover-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border: 4px solid white;
 }
 
-/* Active tab highlight */
-.nav-pills .nav-link {
-    font-weight: bold;
-    color: #444;
+/* RESPONSIVE FIXES */
+
+/* Mobile View */
+@media (max-width: 768px) {
+    .profile-container {
+        margin-top: -30px; /* Reduce overlap */
+        left: 0; /* Center align */
+    }
+
+    .profile-pic {
+        width: 120px;
+        height: 120px;
+        left: 0; /* Center align */
+    }
+
+    .edit-profile-btn {
+        right: 0;
+         /* Align edit button with profile pic */
+        top: 90px; /* Position near profile pic */
+    }
+}
+/* Increase form width on larger screens */
+@media (min-width: 992px) {
+    .card-body {
+        max-width: 900px; /* Adjust the form width */
+        margin: auto; /* Center the form */
+    }
+
+    #profile-form {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* Two-column grid */
+        gap: 20px; /* Increase spacing */
+        max-width: 900px; /* Make form wider */
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .form-group label {
+        width: 150px; /* Align labels */
+        text-align: right;
+        font-weight: bold;
+    }
+
+    .form-group .input-group {
+        flex-grow: 1;
+    }
+
+    /* Make the Save button full-width on PC */
+    #profile-form button {
+        grid-column: span 2;
+        width: 100%;
+    }
 }
 
-.nav-pills .nav-link.active {
-    background-color: #dc3545;
-    color: white;
+/* Make form fields full-width on smaller screens */
+@media (max-width: 991px) {
+    #profile-form {
+        display: block;
+        width: 100%;
+    }
+
+    .form-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-group label {
+        width: 100%;
+        text-align: left;
+    }
+
+    #profile-form button {
+        width: 100%;
+    }
+}
+
+
+/* Tabs */
+.profile-tab {
+    display: none;
+}
+.active-tab {
+    display: block;
 }
 </style>
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    document.getElementById("profile-pic-input").addEventListener("change", function (event) {
-        let file = event.target.files[0];
-        if (file) {
-            let reader = new FileReader();
-            reader.onload = function (e) {
-                document.getElementById("profile-pic").src = e.target.result;
-                uploadProfilePicture(file);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    document.getElementById("cover-photo-input").addEventListener("change", function (event) {
-        let file = event.target.files[0];
-        if (file) {
-            let reader = new FileReader();
-            reader.onload = function (e) {
-                document.getElementById("cover-photo").src = e.target.result;
-                uploadCoverPhoto(file);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-});
-
-function enableEdit(fieldId) {
-    let field = document.getElementById(fieldId);
-    field.removeAttribute("readonly");
-    field.focus();
-    field.classList.add("border-primary");
-
-    field.addEventListener("blur", function() {
-        field.setAttribute("readonly", true);
-        field.classList.remove("border-primary");
-    });
-}
-function uploadProfilePicture(file) {
-    let formData = new FormData();
-    formData.append("file", file);
-
-    fetch("/upload_profile_pic", {
-        method: "POST",
-        body: formData,
-        credentials: "include" // Include session cookie
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.image_url) {
-            console.log("Profile picture updated:", data.image_url);
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(error => console.error("Error uploading profile picture:", error));
-}
-
-function uploadCoverPhoto(file) {
-    let formData = new FormData();
-    formData.append("file", file);
-
-    fetch("/upload_cover_photo", {
-        method: "POST",
-        body: formData,
-        credentials: "include" // Include session cookie
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.image_url) {
-            console.log("Cover photo updated:", data.image_url);
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(error => console.error("Error uploading cover photo:", error));
-}
-
-function saveProfile() {
-    // Simulate save success
-    document.getElementById("update-message").classList.remove("d-none");
-    setTimeout(() => document.getElementById("update-message").classList.add("d-none"), 3000);
-}
-
-function showTab(tabId) {
-    document.querySelectorAll(".profile-tab").forEach(tab => tab.classList.add("d-none"));
-    document.getElementById(tabId).classList.remove("d-none");
-
-    document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
-    document.getElementById(tabId + "-tab").classList.add("active");
-}
-</script>
 {% endblock %}

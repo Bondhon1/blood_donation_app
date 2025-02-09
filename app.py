@@ -1,6 +1,6 @@
-from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify
+from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas
 from forms import RegistrationForm, LoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -92,7 +92,7 @@ def register():
 
 def send_verification_email(email):
     token = generate_email_token(email)
-    msg = Message("Verify Your Email", sender="your_email@example.com", recipients=[email])
+    msg = Message("Verify Your Email", sender="samiulhaquebondhon0@gmail.com", recipients=[email])
     msg.body = f"Click the link to verify your email: {url_for('verify_email', token=token, _external=True)}"
     mail.send(msg)
 @app.route('/verify_email/<token>')
@@ -207,9 +207,20 @@ def inject_user():
 def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
+    divisions = Divisions.query.all()  # Fetch divisions from the database
+    print(divisions)
     
-    return render_template('profile.html', user=user, blood_requests=blood_requests)
+    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions)
 
+@app.route('/get_districts/<int:division_id>')
+def get_districts(division_id):
+    districts = Districts.query.filter_by(division_id=division_id).all()
+    return jsonify([{"id": district.id, "name": district.name} for district in districts])
+
+@app.route('/get_upazilas/<int:district_id>')
+def get_upazilas(district_id):
+    upazilas = Upazilas.query.filter_by(district_id=district_id).all()
+    return jsonify([{"id": upazila.id, "name": upazila.name} for upazila in upazilas])
 
 @app.route('/update_profile', methods=['POST'])
 def update_profile():
@@ -227,6 +238,9 @@ def update_profile():
     user.address = data.get('address', user.address)
     user.blood_group = data.get('blood_group', user.blood_group)
     user.medical_history = data.get('medical_history', user.medical_history)
+    user.division_id = data.get('division_id', user.division_id)
+    user.district_id = data.get('district_id', user.district_id)
+    user.upazila_id = data.get('upazila_id', user.upazila_id)
 
     db.session.commit()
     return jsonify({"message": "Profile updated successfully!"})
@@ -295,7 +309,51 @@ def upload_cover_photo():
         return jsonify({"message": "Cover photo updated!", "image_url": url_for('static', filename='profile_pics/' + filename)})
     
     return jsonify({"message": "Invalid file type"}), 400
+@app.route("/admin_login")
+def admin_login_page():
+    secret_code = request.args.get("code")
 
+    # Check if the provided code matches the secret one
+    if secret_code != Config.SECRET_ADMIN_CODE:
+        abort(404)  # Show a 404 error page
+
+    return render_template("admin_login.html")
+
+@app.route("/admin_login", methods=["POST"])
+def admin_login():
+    username = request.form["username"]
+    password = request.form["password"]
+
+    admin = Admin.query.filter_by(admin_username=username).first()
+
+    if admin and admin.check_password(password):
+        session["admin_id"] = admin.admin_id  # ✅ Ensure this matches your model
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("admin_login.html", error="Invalid credentials")
+
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if 'admin_id' not in session:
+        print('Error here')
+        flash("Please log in as an admin.", "danger")
+        return redirect(url_for('admin_login'))
+
+    admin = Admin.query.filter_by(admin_id=session['admin_id']).first()  # ✅ Corrected
+
+    if not admin:
+        flash("Admin not found.", "danger")
+        return redirect(url_for('admin_login'))
+
+    return render_template("admin_dashboard.html", admin=admin)
+
+
+
+@app.route("/admin-logout")
+def admin_logout():
+    session.pop("admin_logged_in", None)
+    return redirect(url_for("admin_login_page"))
 
 if __name__ == '__main__':
     with app.app_context():
