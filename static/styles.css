@@ -207,3 +207,152 @@ button:hover {
     font-size: 1rem !important;
     border: 1px solid white !important;
 }
+/* Profile Picture & Container Fix */
+.profile-container {
+    position: relative;
+    margin-top: -60px; /* Adjust for better alignment */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Profile Picture */
+.profile-pic {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border: 5px solid white;
+    border-radius: 50%;
+    position: relative;
+    left: -450px; /* Move left slightly */
+    z-index: 2;
+}
+
+/* Username below Profile Pic */
+.profile-container h3 {
+    margin-top: 10px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Profile Picture Upload Button */
+.edit-profile-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    background: white;
+    border: 2px solid #ddd;
+    position: relative;
+    top: 110px;
+    right: 1020px; /* Adjust so it doesn’t overlap */
+    cursor: pointer;
+}
+
+/* Cover Photo */
+.cover-container {
+    height: 250px;
+    overflow: hidden;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    position: relative;
+}
+
+.cover-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* RESPONSIVE FIXES */
+
+/* Mobile View */
+@media (max-width: 768px) {
+    .profile-container {
+        margin-top: -30px; /* Reduce overlap */
+        left: 0; /* Center align */
+    }
+
+    .profile-pic {
+        width: 120px;
+        height: 120px;
+        left: 0; /* Center align */
+    }
+
+    .edit-profile-btn {
+        right: 0;
+         /* Align edit button with profile pic */
+        top: 90px; /* Position near profile pic */
+    }
+}
+/* Increase form width on larger screens */
+@media (min-width: 992px) {
+    .card-body {
+        max-width: 900px; /* Adjust the form width */
+        margin: auto; /* Center the form */
+    }
+
+    #profile-form {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* Two-column grid */
+        gap: 20px; /* Increase spacing */
+        max-width: 900px; /* Make form wider */
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .form-group label {
+        width: 150px; /* Align labels */
+        text-align: right;
+        font-weight: bold;
+    }
+
+    .form-group .input-group {
+        flex-grow: 1;
+    }
+
+    /* Make the Save button full-width on PC */
+    #profile-form button {
+        grid-column: span 2;
+        width: 100%;
+    }
+}
+
+/* Make form fields full-width on smaller screens */
+@media (max-width: 991px) {
+    #profile-form {
+        display: block;
+        width: 100%;
+    }
+
+    .form-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-group label {
+        width: 100%;
+        text-align: left;
+    }
+
+    #profile-form button {
+        width: 100%;
+    }
+}
+
+
+/* Tabs */
+.profile-tab {
+    display: none;
+}
+.active-tab {
+    display: block;
+}

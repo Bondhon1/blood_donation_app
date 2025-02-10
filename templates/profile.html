@@ -46,10 +46,26 @@
         <div class="card-body">
             <!-- Profile Info Tab -->
             <div id="info" class="profile-tab active-tab">
+                <!-- Profile Form -->
                 <form id="profile-form">
+                    <div class="mb-3">
+                        <label class="fw-bold">Username</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user-tag"></i></span>
+                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                        </div>
+                    </div>
+
                     {% set fields = [
                         ("name", "Full Name", "user", user.name),
-                        ("username", "Username", "user-tag", user.username),
                         ("phone", "Phone", "phone", user.phone),
                         ("blood_group", "Blood Group", "tint", user.blood_group),
                         ("medical_history", "Medical History", "notes-medical", user.medical_history),
@@ -68,37 +84,44 @@
                         </div>
                     </div>
                     {% endfor %}
+
+                    <!-- Division Selection -->
+                    <!-- Division Selection -->
                     <div class="mb-3">
                         <label class="fw-bold">Division</label>
-                        <select id="division" class="form-select" onchange="loadDistricts()">
+                        <select id="division" class="form-select" onchange="loadDistricts()" required>
                             <option value="">Select Division</option>
                             {% for division in divisions %}
-                                <option value="{{ division.id }}" {% if user.division_id == division.id %}selected{% endif %}>
+                                <option value="{{ division.id }}" {% if user.division_id and user.division_id == division.id %}selected{% endif %}>
                                     {{ division.name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
-                    
+
+
+                    <!-- District Selection -->
                     <div class="mb-3">
                         <label class="fw-bold">District</label>
-                        <select id="district" class="form-select" onchange="loadUpazilas()">
+                        <select id="district" class="form-select" onchange="loadUpazilas()" required>
                             <option value="">Select District</option>
                         </select>
                     </div>
-                    
+
+                    <!-- Upazila Selection -->
                     <div class="mb-3">
                         <label class="fw-bold">Upazila/City Corporation</label>
-                        <select id="upazila" class="form-select">
+                        <select id="upazila" class="form-select" required>
                             <option value="">Select Upazila/City Corporation</option>
                         </select>
                     </div>
-                    
+
                     <button class="btn btn-success mt-3 w-100 shadow" type="button" onclick="saveProfile()">
                         <i class="fas fa-save"></i> Save Changes
                     </button>
-                    
                 </form>
+
+
             </div>
 
             <!-- Past Requests Tab -->
@@ -118,37 +141,167 @@
 
 function showTab(event, tabId) {
     event.preventDefault();
-    
+
     // Hide all tabs
     document.querySelectorAll('.profile-tab').forEach(tab => tab.style.display = 'none');
-    
+
     // Remove active class from all nav links
     document.querySelectorAll('#profileTabs .nav-link').forEach(link => link.classList.remove('active'));
-    
+
     // Show the selected tab
     document.getElementById(tabId).style.display = 'block';
-    
+
     // Add active class to clicked tab
     event.currentTarget.classList.add('active');
+
+    // Close the navbar in mobile view
+    let navbarCollapse = document.querySelector('.navbar-collapse');
+    if (navbarCollapse.classList.contains('show')) {
+        new bootstrap.Collapse(navbarCollapse).hide();
+    }
 }
+document.addEventListener("DOMContentLoaded", function () {
+    let navbarLinks = document.querySelectorAll('.navbar-nav .nav-link');
+
+    navbarLinks.forEach(link => {
+        link.addEventListener('click', function () {
+            let navbarCollapse = document.querySelector('.navbar-collapse');
+            if (window.innerWidth < 992 && navbarCollapse.classList.contains('show')) {
+                new bootstrap.Collapse(navbarCollapse).hide();
+            }
+        });
+    });
+});
+document.addEventListener("DOMContentLoaded", function () {
+    let districtId = "{{ user.district_id }}";
+    let upazilaId = "{{ user.upazila_id }}";
+    let divisionId = "{{ user.division_id }}";
+
+    // Set the division dropdown to the saved value (if any)
+    const divisionSelect = document.getElementById("division");
+    if (divisionId) {
+        divisionSelect.value = divisionId;
+        loadDistricts(divisionId, districtId, upazilaId);
+    }
+
+    // Ensure districts and upazilas reset if no division is selected
+    const districtSelect = document.getElementById("district");
+    const upazilaSelect = document.getElementById("upazila");
+
+    if (!divisionId) {
+        districtSelect.innerHTML = `<option value="">Select Division first</option>`;
+        upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
+        districtSelect.disabled = true;
+        upazilaSelect.disabled = true;
+    }
+
+    // Event listener for division change
+    divisionSelect.addEventListener("change", function () {
+        let selectedDivision = this.value;
+        districtSelect.disabled = !selectedDivision;
+        upazilaSelect.disabled = true;
+        districtSelect.innerHTML = `<option value="">Loading...</option>`;
+        upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
+
+        if (selectedDivision) {
+            loadDistricts(selectedDivision);
+        } else {
+            districtSelect.innerHTML = `<option value="">Select Division first</option>`;
+        }
+    });
+
+    // Event listener for district change
+    districtSelect.addEventListener("change", function () {
+        let selectedDistrict = this.value;
+        upazilaSelect.disabled = !selectedDistrict;
+        upazilaSelect.innerHTML = `<option value="">Loading...</option>`;
+
+        if (selectedDistrict) {
+            loadUpazilas(selectedDistrict);
+        } else {
+            upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
+        }
+    });
+});
+
+function loadDistricts(selectedDivisionId, selectedDistrictId = null, selectedUpazilaId = null) {
+    if (!selectedDivisionId) return;
+
+    fetch(`/get_districts/${selectedDivisionId}`)
+        .then(response => response.json())
+        .then(data => {
+            const districtSelect = document.getElementById("district");
+            districtSelect.innerHTML = `<option value="">Select District</option>`;
+
+            data.forEach(district => {
+                let isSelected = selectedDistrictId && selectedDistrictId == district.id ? "selected" : "";
+                districtSelect.innerHTML += `<option value="${district.id}" ${isSelected}>${district.name}</option>`;
+            });
+
+            districtSelect.disabled = false;
+
+            if (selectedDistrictId) {
+                loadUpazilas(selectedDistrictId, selectedUpazilaId);
+            }
+        })
+        .catch(error => console.error("Error loading districts:", error));
+}
+
+function loadUpazilas(selectedDistrictId, selectedUpazilaId = null) {
+    if (!selectedDistrictId) return;
+
+    fetch(`/get_upazilas/${selectedDistrictId}`)
+        .then(response => response.json())
+        .then(data => {
+            const upazilaSelect = document.getElementById("upazila");
+            upazilaSelect.innerHTML = `<option value="">Select Upazila/City Corporation</option>`;
+
+            data.forEach(upazila => {
+                let isSelected = selectedUpazilaId && selectedUpazilaId == upazila.id ? "selected" : "";
+                upazilaSelect.innerHTML += `<option value="${upazila.id}" ${isSelected}>${upazila.name}</option>`;
+            });
+
+            upazilaSelect.disabled = false;
+        })
+        .catch(error => console.error("Error loading upazilas:", error));
+}
+
+
+function disableAddressFields() {
+    document.getElementById('district').disabled = true;
+    document.getElementById('upazila').disabled = true;
+}
+
+document.getElementById('division').addEventListener('change', function() {
+    document.getElementById('district').disabled = this.value === "";
+    document.getElementById('district').innerHTML = `<option value="">Select Divission first</option>`;
+    document.getElementById('upazila').disabled = true;
+    document.getElementById('upazila').innerHTML = `<option value="">Select District First</option>`;
+});
+
+document.getElementById('district').addEventListener('change', function() {
+    document.getElementById('upazila').disabled = this.value === "";
+    document.getElementById('upazila').innerHTML = `<option value="">Select Upazila/City Corporation</option>`;
+});
+
+
 
 
 function enableEdit(fieldId) {
     let inputField = document.getElementById(fieldId);
-    let button = inputField.nextElementSibling; // Get the edit button
+    let button = inputField.nextElementSibling;
 
     if (inputField.readOnly) {
         inputField.readOnly = false;
-        inputField.classList.add("border-primary"); // Highlight editable field
-        button.innerHTML = '<i class="fas fa-check"></i>'; // Change to checkmark
+        inputField.classList.add("border-primary");
+        button.innerHTML = '<i class="fas fa-check"></i>';
         button.classList.replace("btn-outline-primary", "btn-success");
     } else {
         inputField.readOnly = true;
         inputField.classList.remove("border-primary");
-        button.innerHTML = '<i class="fas fa-pencil-alt"></i>'; // Restore edit icon
+        button.innerHTML = '<i class="fas fa-pencil-alt"></i>';
         button.classList.replace("btn-success", "btn-outline-primary");
 
-        // ✅ Auto-save when editing is done
         saveProfile(fieldId, inputField.value);
     }
 }
@@ -187,36 +340,11 @@ function uploadImage(type) {
 document.querySelectorAll('.profile-tab').forEach(tab => tab.style.display = 'none');
 document.getElementById('info').style.display = 'block';
 
-function loadDistricts() {
-    const divisionId = document.getElementById('division').value;
-    fetch(`/get_districts/${divisionId}`)
-        .then(response => response.json())
-        .then(data => {
-            const districtSelect = document.getElementById('district');
-            districtSelect.innerHTML = `<option value="">Select District</option>`;
-            data.forEach(district => {
-                districtSelect.innerHTML += `<option value="${district.id}">${district.name}</option>`;
-            });
-        });
-}
 
-function loadUpazilas() {
-    const districtId = document.getElementById('district').value;
-    fetch(`/get_upazilas/${districtId}`)
-        .then(response => response.json())
-        .then(data => {
-            const upazilaSelect = document.getElementById('upazila');
-            upazilaSelect.innerHTML = `<option value="">Select Upazila/City Corporation</option>`;
-            data.forEach(upazila => {
-                upazilaSelect.innerHTML += `<option value="${upazila.id}">${upazila.name}</option>`;
-            });
-        });
-}
 
 function saveProfile(fieldId = null, value = null) {
     let updatedData = {
         name: document.getElementById("name").value,
-        username: document.getElementById("username").value,
         phone: document.getElementById("phone").value,
         blood_group: document.getElementById("blood_group").value,
         medical_history: document.getElementById("medical_history").value,
@@ -226,7 +354,6 @@ function saveProfile(fieldId = null, value = null) {
         upazila_id: document.getElementById("upazila").value
     };
 
-    // If called for a single field edit, update only that field
     if (fieldId && value !== null) {
         updatedData = { [fieldId]: value };
     }
@@ -245,157 +372,6 @@ function saveProfile(fieldId = null, value = null) {
 
 </script>
 
-<!-- Styles -->
-<style>
-/* Profile Picture & Container Fix */
-.profile-container {
-    position: relative;
-    margin-top: -60px; /* Adjust for better alignment */
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
 
-/* Profile Picture */
-.profile-pic {
-    width: 150px;
-    height: 150px;
-    object-fit: cover;
-    border: 5px solid white;
-    border-radius: 50%;
-    position: relative;
-    left: -450px; /* Move left slightly */
-    z-index: 2;
-}
-
-/* Username below Profile Pic */
-.profile-container h3 {
-    margin-top: 10px;
-    font-weight: bold;
-    color: #333;
-}
-
-/* Profile Picture Upload Button */
-.edit-profile-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    background: white;
-    border: 2px solid #ddd;
-    position: relative;
-    top: 110px;
-    right: 1020px; /* Adjust so it doesn’t overlap */
-    cursor: pointer;
-}
-
-/* Cover Photo */
-.cover-container {
-    height: 250px;
-    overflow: hidden;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    position: relative;
-}
-
-.cover-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* RESPONSIVE FIXES */
-
-/* Mobile View */
-@media (max-width: 768px) {
-    .profile-container {
-        margin-top: -30px; /* Reduce overlap */
-        left: 0; /* Center align */
-    }
-
-    .profile-pic {
-        width: 120px;
-        height: 120px;
-        left: 0; /* Center align */
-    }
-
-    .edit-profile-btn {
-        right: 0;
-         /* Align edit button with profile pic */
-        top: 90px; /* Position near profile pic */
-    }
-}
-/* Increase form width on larger screens */
-@media (min-width: 992px) {
-    .card-body {
-        max-width: 900px; /* Adjust the form width */
-        margin: auto; /* Center the form */
-    }
-
-    #profile-form {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr); /* Two-column grid */
-        gap: 20px; /* Increase spacing */
-        max-width: 900px; /* Make form wider */
-    }
-
-    .form-group {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .form-group label {
-        width: 150px; /* Align labels */
-        text-align: right;
-        font-weight: bold;
-    }
-
-    .form-group .input-group {
-        flex-grow: 1;
-    }
-
-    /* Make the Save button full-width on PC */
-    #profile-form button {
-        grid-column: span 2;
-        width: 100%;
-    }
-}
-
-/* Make form fields full-width on smaller screens */
-@media (max-width: 991px) {
-    #profile-form {
-        display: block;
-        width: 100%;
-    }
-
-    .form-group {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .form-group label {
-        width: 100%;
-        text-align: left;
-    }
-
-    #profile-form button {
-        width: 100%;
-    }
-}
-
-
-/* Tabs */
-.profile-tab {
-    display: none;
-}
-.active-tab {
-    display: block;
-}
-</style>
 
 {% endblock %}
