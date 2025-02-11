@@ -141,37 +141,24 @@
 
 function showTab(event, tabId) {
     event.preventDefault();
+    event.stopPropagation();
 
-    // Hide all tabs
     document.querySelectorAll('.profile-tab').forEach(tab => tab.style.display = 'none');
-
-    // Remove active class from all nav links
     document.querySelectorAll('#profileTabs .nav-link').forEach(link => link.classList.remove('active'));
 
-    // Show the selected tab
     document.getElementById(tabId).style.display = 'block';
-
-    // Add active class to clicked tab
     event.currentTarget.classList.add('active');
 
-    // Close the navbar in mobile view
+    // Close the navbar manually
     let navbarCollapse = document.querySelector('.navbar-collapse');
     if (navbarCollapse.classList.contains('show')) {
         new bootstrap.Collapse(navbarCollapse).hide();
     }
 }
-document.addEventListener("DOMContentLoaded", function () {
-    let navbarLinks = document.querySelectorAll('.navbar-nav .nav-link');
 
-    navbarLinks.forEach(link => {
-        link.addEventListener('click', function () {
-            let navbarCollapse = document.querySelector('.navbar-collapse');
-            if (window.innerWidth < 992 && navbarCollapse.classList.contains('show')) {
-                new bootstrap.Collapse(navbarCollapse).hide();
-            }
-        });
-    });
-});
+
+
+
 document.addEventListener("DOMContentLoaded", function () {
     let districtId = "{{ user.district_id }}";
     let upazilaId = "{{ user.upazila_id }}";

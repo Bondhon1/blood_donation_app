@@ -37,10 +37,7 @@
                 
     
                 <!-- 🔥 Navbar Toggler (Fixes Collapsing Issue) -->
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-    
+                
                 <!-- 🔥 Wrapped in Collapse (Fixes Expand/Collapse Issue) -->
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
@@ -51,19 +48,23 @@
                         </li>
                         <li class="nav-item">
                             <a href="{{ url_for('news_feed', username=user.username) }}" class="btn btn-outline-light me-2 nav-link">
-                                <i class="fas fa-newspaper"></i> News Feed
+                                <i class="fas fa-newspaper"></i> 
+                                <span class="hide-on-mobile"> News Feed</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="#" class="btn btn-outline-light me-2 nav-link">
-                                <i class="fas fa-user-md"></i> Doctor’s Help
+                                <i class="fas fa-user-md"></i> 
+                                <span class="hide-on-mobile"> Doctor’s Help</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a href="#" class="btn btn-outline-light me-2 nav-link">
-                                <i class="fas fa-comments"></i> Chat with Donor
+                                <i class="fas fa-comments"></i> 
+                                <span class="hide-on-mobile"> Chat with Donor</span>
                             </a>
                         </li>
+                        
     
                         <!-- Notifications -->
                         <li class="nav-item">
