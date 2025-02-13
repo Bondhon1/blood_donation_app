@@ -71,7 +71,7 @@
             longitude: position.coords.longitude
         };
 
-        console.log("Sending location data:", data); // ✅ Debugging
+        console.log("🚀 Sending location data:", data);  // ✅ Debugging
 
         fetch("/save_location", {
             method: "POST",
@@ -82,12 +82,14 @@
         })
         .then(response => response.json())
         .then(data => {
-            console.log("Location saved:", data); // ✅ Debugging
+            console.log("✅ Location saved response:", data);  // ✅ Debugging
         })
-        .catch(error => console.error("Error saving location:", error));
+        .catch(error => console.error("❌ Error saving location:", error));
     }
 
+
     function getLocation() {
+        console.log("📍 getLocation() is running...");  // ✅ Debugging
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(sendLocation, function(error) {
                 console.error("Error getting location:", error);

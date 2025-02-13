@@ -155,9 +155,9 @@ def save_location():
                 if dist < min_distance:
                     min_distance = dist
                     nearest_district = district
-
+        print(nearest_district)
         if nearest_district:
-            division = Divisions.query.get(nearest_district.division_id)
+            division = db.session.get(Divisions, nearest_district.division_id)  # ✅ Fixed
             session["district"] = nearest_district.name
             session["division"] = division.name if division else "Unknown"
 
@@ -176,10 +176,11 @@ def save_location():
         return jsonify({"error": "Something went wrong"}), 500
 
 
+
 ### ✅ API: User Logout
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    session.clear()
     flash("Logged out successfully!", "info")
     return redirect(url_for('home'))
 
