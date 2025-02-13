@@ -83,19 +83,24 @@ class Admin(db.Model):  # Fix the typo here
         return check_password_hash(self.admin_password, password)
 # Models for divisions, districts, upazilas if not already defined:
 class Divisions(db.Model):
-    __tablename__ = "divisions"  # Ensure this matches the ForeignKey reference
+    __tablename__ = "divisions"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
 
 class Districts(db.Model):
     __tablename__ = "districts"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    division_id = db.Column(db.Integer, db.ForeignKey("divisions.id"), nullable=False)  # Make sure this matches
-
+    division_id = db.Column(db.Integer, db.ForeignKey("divisions.id"), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
 
 class Upazilas(db.Model):
     __tablename__ = "upazilas"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     district_id = db.Column(db.Integer, db.ForeignKey('districts.id'), nullable=False)
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)

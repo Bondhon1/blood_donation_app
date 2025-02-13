@@ -10,6 +10,8 @@ from itsdangerous import URLSafeTimedSerializer
 import os
 from werkzeug.utils import secure_filename
 from flask import current_app
+import requests
+from geopy.distance import geodesic  # To calculate the closest location
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
 if not os.path.exists(UPLOAD_FOLDER):
@@ -132,6 +134,48 @@ def login():
     
     return render_template('login.html', form=form)
 
+@app.route("/save_location", methods=["POST"])
+def save_location():
+    try:
+        data = request.json
+        user_lat = data.get("latitude")
+        user_lon = data.get("longitude")
+
+        if not user_lat or not user_lon:
+            return jsonify({"error": "Invalid location data"}), 400
+
+        # 🏙 Find the closest district based on latitude & longitude
+        districts = Districts.query.all()
+        nearest_district = None
+        min_distance = float("inf")
+
+        for district in districts:
+            if district.latitude and district.longitude:
+                dist = geodesic((user_lat, user_lon), (district.latitude, district.longitude)).km
+                if dist < min_distance:
+                    min_distance = dist
+                    nearest_district = district
+
+        if nearest_district:
+            division = Divisions.query.get(nearest_district.division_id)
+            session["district"] = nearest_district.name
+            session["division"] = division.name if division else "Unknown"
+
+            print(f"✅ Nearest District: {nearest_district.name}, Division: {session['division']}")
+
+            return jsonify({
+                "message": "Location received!",
+                "district": session["district"],
+                "division": session["division"]
+            }), 200
+        else:
+            return jsonify({"error": "No district found"}), 404
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return jsonify({"error": "Something went wrong"}), 500
+
+
 ### ✅ API: User Logout
 @app.route('/logout')
 def logout():
@@ -200,7 +244,8 @@ def resend_verification():
 def inject_user():
     user = None
     if 'user_id' in session:
-        user = User.query.get(session['user_id'])
+        user = db.session.get(User, session['user_id'])
+
     return dict(user=user)
 
 @app.route('/profile/<username>')

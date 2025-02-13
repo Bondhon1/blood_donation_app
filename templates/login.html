@@ -62,7 +62,42 @@
             }
         });
     });
-    
+ 
+   
+
+    function sendLocation(position) {
+        const data = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+
+        console.log("Sending location data:", data); // ✅ Debugging
+
+        fetch("/save_location", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Location saved:", data); // ✅ Debugging
+        })
+        .catch(error => console.error("Error saving location:", error));
+    }
+
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(sendLocation, function(error) {
+                console.error("Error getting location:", error);
+            });
+        } else {
+            console.error("Geolocation is not supported by this browser.");
+        }
+    }
+
+    window.onload = getLocation;
 </script>
 
 

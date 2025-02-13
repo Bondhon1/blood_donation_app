@@ -19,7 +19,7 @@
         <div class="position-relative cover-container">
             <img id="cover-photo" src="{{ url_for('static', filename='profile_pics/' + user.cover_photo) }}" class="img-fluid cover-image">
             <input type="file" id="cover-photo-input" class="d-none" accept="image/*" onchange="uploadImage('cover')">
-            <button class="btn btn-outline-light position-absolute top-0 end-0 m-2 shadow" onclick="document.getElementById('cover-photo-input').click();">
+            <button class="btn btn-outline-light position-absolute top-0 end-0 m-0 shadow" onclick="document.getElementById('cover-photo-input').click();">
                 <i class="fas fa-camera"></i> Change Cover
             </button>
         </div>
