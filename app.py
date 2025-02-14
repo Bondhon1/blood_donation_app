@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
 from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas
-from forms import RegistrationForm, LoginForm
+from forms import RegistrationForm, LoginForm, BloodRequestForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -12,6 +12,10 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 import requests
 from geopy.distance import geodesic  # To calculate the closest location
+from datetime import datetime, timezone, UTC
+from flask_login import current_user, login_required
+import uuid
+
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
 if not os.path.exists(UPLOAD_FOLDER):
@@ -134,6 +138,19 @@ def login():
     
     return render_template('login.html', form=form)
 
+@app.before_request
+def update_last_active():
+    if 'user_id' in session:
+        session['last_active'] = datetime.now(timezone.utc).timestamp()
+
+@app.before_request
+def auto_logout():
+    timeout = 600  # 10 minutes
+    if 'last_active' in session and (datetime.now(timezone.utc).timestamp() - session['last_active'] > timeout):
+        session.clear()
+        flash("Session expired. Please log in again.", "info")
+        return redirect(url_for('login'))
+
 @app.route("/save_location", methods=["POST"])
 def save_location():
     try:
@@ -254,9 +271,9 @@ def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
     divisions = Divisions.query.all()  # Fetch divisions from the database
-    print(divisions)
-    
-    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions)
+    form = BloodRequestForm()  # Create a new form instance
+
+    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions, form=form)
 
 @app.route('/get_districts/<int:division_id>')
 def get_districts(division_id):
@@ -297,7 +314,7 @@ def upload_profile_pic():
     if 'user_id' not in session:
         return jsonify({"message": "Unauthorized"}), 401
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])  # ✅ Correct for SQLAlchemy 2.0
     if not user:
         return jsonify({"message": "User not found"}), 404
 
@@ -330,7 +347,8 @@ def upload_cover_photo():
     if 'user_id' not in session:
         return jsonify({"message": "Unauthorized"}), 401
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])  # ✅ Correct for SQLAlchemy 2.0
+
     if not user:
         return jsonify({"message": "User not found"}), 404
 
@@ -355,6 +373,76 @@ def upload_cover_photo():
         return jsonify({"message": "Cover photo updated!", "image_url": url_for('static', filename='profile_pics/' + filename)})
     
     return jsonify({"message": "Invalid file type"}), 400
+@app.route('/new_blood_request', methods=['POST'])
+def new_blood_request():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    form = BloodRequestForm()  # ✅ Do NOT pass request.form here
+
+    if form.validate_on_submit():
+        user_id = session['user_id']
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        # ✅ Handle multiple image uploads
+        image_filenames = []
+        images = request.files.getlist('images')  # ✅ Fetch files properly
+
+        if images and len(images) > 10:
+            flash("You can upload a maximum of 10 images.", "danger")
+            return redirect(url_for('profile', username=user.username))
+
+        for image in images:
+            if image and image.filename:  # Ensure file is not empty
+                ext = os.path.splitext(image.filename)[1]  # Get file extension
+                unique_filename = f"{uuid.uuid4().hex}{ext}"  # Unique filename
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                image.save(image_path)  # ✅ Save file in profile_pics folder
+                image_filenames.append(unique_filename)
+
+        image_paths_str = ",".join(image_filenames) if image_filenames else None
+
+        new_request = BloodRequest(
+            patient_name=form.patient_name.data,
+            gender=form.gender.data,
+            required_date=form.required_date.data,
+            blood_group=form.blood_group.data,
+            amount_needed=float(form.amount_needed.data),
+            hospital_name=form.hospital_name.data,
+            urgency_status=form.urgency_status.data,
+            reason=form.reason.data,
+            user_id=user_id,
+            status="Open",
+            location=f"{session.get('district')}, {session.get('division')}",
+            images=image_paths_str,  # ✅ Store filenames in DB
+            created_at=datetime.now().astimezone(timezone.utc)  # ✅ Ensure UTC timezone
+        )
+
+        db.session.add(new_request)
+        db.session.commit()
+
+        flash("Blood request posted successfully!", "success")
+        return redirect(url_for('profile', username=user.username))  
+
+    flash("Failed to post blood request. Please check your input.", "danger")
+
+    user_id = session.get('user_id')  
+    user = User.query.filter_by(id=user_id).first()
+
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for('index'))
+
+    return render_template(
+        'profile.html', 
+        user=user,  
+        form=form,  
+        divisions=Divisions.query.all(), 
+        blood_requests=BloodRequest.query.filter_by(user_id=user.id).all()  
+    )
+
 @app.route("/admin_login")
 def admin_login_page():
     secret_code = request.args.get("code")

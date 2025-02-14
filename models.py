@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, UTC
+
 
 db = SQLAlchemy()
 
@@ -55,18 +56,23 @@ class User(db.Model):
 # ✅ Blood Request Model
 class BloodRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    patient_name = db.Column(db.String(100), nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    required_date = db.Column(db.Date, nullable=False)
     blood_group = db.Column(db.String(5), nullable=False)
+    amount_needed = db.Column(db.Float, nullable=False)
+    hospital_name = db.Column(db.String(200), nullable=False)
+    urgency_status = db.Column(db.String(20), nullable=False)  # e.g., "High", "Medium", "Low"
+    reason = db.Column(db.Text, nullable=False)
+    images = db.Column(db.String(255))  # Path to images if any
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     location = db.Column(db.String(255), nullable=False)
-    contact_info = db.Column(db.String(255), nullable=False)
-    request_date = db.Column(db.DateTime, default=datetime.utcnow)
-    status = db.Column(db.String(20), default="Pending")  # Pending, Fulfilled, Canceled
+    status = db.Column(db.String(20), default="Open")  # New status field
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    
+    
 
-    def __init__(self, user_id, blood_group, location, contact_info):
-        self.user_id = user_id
-        self.blood_group = blood_group
-        self.location = location
-        self.contact_info = contact_info
+
 
 class Admin(db.Model):  # Fix the typo here
     admin_id = db.Column(db.Integer, primary_key=True)

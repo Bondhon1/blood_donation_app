@@ -12,13 +12,12 @@
             </div>
         {% endfor %}
     {% endif %}
-{% endwith %}
-
+    {% endwith %}
 
     <h2 class="text-center">Login</h2>
-    <form method="POST" class="needs-validation" novalidate>
+    <form method="POST" class="needs-validation" novalidate id="loginForm">
         {{ form.hidden_tag() }}
-        
+
         <div class="mb-3">
             <label class="form-label">{{ form.email.label }}</label>
             <div class="input-group">
@@ -37,9 +36,16 @@
                 </button>
             </div>
         </div>
-        
 
-        <button type="submit" class="btn btn-primary btn-animated w-100">
+        <!-- Loading spinner -->
+        <div id="loadingSpinner" class="text-center d-none">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Getting location...</p>
+        </div>
+
+        <button type="submit" id="loginBtn" class="btn btn-primary btn-animated w-100" disabled>
             <i class="fas fa-sign-in-alt"></i> Login
         </button>
     </form>
@@ -62,40 +68,46 @@
             }
         });
     });
- 
-   
 
     function sendLocation(position) {
+        console.log("📍 sendLocation() is running...");
         const data = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
         };
 
-        console.log("🚀 Sending location data:", data);  // ✅ Debugging
-
+        console.log("🚀 Sending location data:", data);
+        
         fetch("/save_location", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         })
         .then(response => response.json())
         .then(data => {
-            console.log("✅ Location saved response:", data);  // ✅ Debugging
+            console.log("✅ Location saved response:", data);
+            document.getElementById("loadingSpinner").classList.add("d-none");  // Hide loading
+            document.getElementById("loginBtn").disabled = false;  // Enable login button
         })
-        .catch(error => console.error("❌ Error saving location:", error));
+        .catch(error => {
+            console.error("❌ Error saving location:", error);
+            alert("Error fetching location. Please allow location access and try again.");
+        });
     }
 
-
     function getLocation() {
-        console.log("📍 getLocation() is running...");  // ✅ Debugging
+        console.log("📍 getLocation() is running...");
+        document.getElementById("loadingSpinner").classList.remove("d-none");  // Show loading
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(sendLocation, function(error) {
-                console.error("Error getting location:", error);
+                console.error("❌ Error getting location:", error);
+                alert("Please enable location services to proceed.");
+                document.getElementById("loadingSpinner").classList.add("d-none");
             });
         } else {
-            console.error("Geolocation is not supported by this browser.");
+            console.error("❌ Geolocation is not supported.");
+            alert("Geolocation is not supported by this browser.");
+            document.getElementById("loadingSpinner").classList.add("d-none");
         }
     }
 
