@@ -89,14 +89,17 @@
                     <div class="mb-3">
                         <label class="fw-bold">Division</label>
                         <select id="division" class="form-select" onchange="loadDistricts()" required>
-                            <option value="">Select Division</option>
+                            <option value="" {% if not user.division_id %}selected{% endif %}>Select Division</option>
                             {% for division in divisions %}
-                                <option value="{{ division.id }}" {% if user.division_id and user.division_id == division.id %}selected{% endif %}>
+                                <option value="{{ division.id }}" {% if user.division_id == division.id %}selected{% endif %}>
                                     {{ division.name }}
                                 </option>
                             {% endfor %}
                         </select>
                     </div>
+
+
+
 
 
                     <!-- District Selection -->
@@ -127,80 +130,81 @@
             <div id="requests" class="profile-tab">Past Requests Content</div>
 
             <!-- New Request Tab -->
-            <div id="new-request" class="profile-tab">
-                <h4 class="mb-3">Post a New Blood Request</h4>
-
-                <form action="{{ url_for('new_blood_request') }}" method="POST" enctype="multipart/form-data">
-                    {{ form.hidden_tag() }}  <!-- Flask-WTF CSRF token -->
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Patient Name</label>
-                        <input type="text" name="patient_name" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Gender</label>
-                        <select name="gender" class="form-select" required>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Required Date</label>
-                        <input type="date" name="required_date" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Required Blood Group</label>
-                        <select name="blood_group" class="form-select" required>
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Amount of Blood Needed (in bags)</label>
-                        <input type="number" name="amount_needed" class="form-control" min="1" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Hospital Name</label>
-                        <input type="text" name="hospital_name" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Urgency Status</label>
-                        <select name="urgency_status" class="form-select" required>
-                            <option value="Normal">Normal</option>
-                            <option value="Urgent">Urgent</option>
-                            <option value="Critical">Critical</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Reason for Request</label>
-                        <textarea name="reason" class="form-control" rows="3" required></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold">Upload Supporting Images (optional, max 10)</label>
-                        <input type="file" name="images" class="form-control" accept="image/*" multiple>
-                        <small class="text-muted">You can upload up to 10 images.</small>
-                    </div>
+            <div id="new-request" class="profile-tab container">
+                
                     
 
-                    <button type="submit" class="btn btn-danger w-100">
-                        <i class="fas fa-tint"></i> Submit Blood Request
-                    </button>
-                </form>
+                        <h4 class="mb-3">Post a New Blood Request</h4>
+
+                        <form action="{{ url_for('new_blood_request') }}" method="POST" enctype="multipart/form-data">
+                            {{ form.hidden_tag() }}  <!-- Flask-WTF CSRF token -->
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Patient Name</label>
+                                <input type="text" name="patient_name" class="form-control" required>
+                                <span class="form-text text-danger"></span> <!-- ✅ Always add this -->
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Gender</label>
+                                <select name="gender" class="form-select" required>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Required Date</label>
+                                <input type="date" name="required_date" class="form-control" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Required Blood Group</label>
+                                <select name="blood_group" class="form-select" required>
+                                    <option value="A+">A+</option>
+                                    <option value="A-">A-</option>
+                                    <option value="B+">B+</option>
+                                    <option value="B-">B-</option>
+                                    <option value="O+">O+</option>
+                                    <option value="O-">O-</option>
+                                    <option value="AB+">AB+</option>
+                                    <option value="AB-">AB-</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Amount of Blood Needed (in bags)</label>
+                                <input type="number" name="amount_needed" class="form-control" min="1" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Hospital Name</label>
+                                <input type="text" name="hospital_name" class="form-control" required>
+                                <span class="form-text text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Urgency Status</label>
+                                <select name="urgency_status" class="form-select" required>
+                                    <option value="Normal">Normal</option>
+                                    <option value="Urgent">Urgent</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold">Reason for Request</label>
+                                <textarea name="reason" class="form-control" rows="3" required></textarea>
+                                <span class="form-text text-danger"></span>
+                            </div>
+
+                            <button type="submit" id="submitBtn" class="btn btn-danger w-100" disabled>
+                                <i class="fas fa-tint"></i> Submit Blood Request
+                            </button>
+                        </form>
+
+                  
             </div>
 
 
@@ -230,25 +234,30 @@ function showTab(event, tabId) {
     }
 }
 
-
-
-
 document.addEventListener("DOMContentLoaded", function () {
-    let districtId = "{{ user.district_id }}";
-    let upazilaId = "{{ user.upazila_id }}";
-    let divisionId = "{{ user.division_id }}";
+    let divisionId = "{{ user.division_id }}"; // Division ID from backend
+    let districtId = "{{ user.district_id }}"; // District ID from backend
+    let upazilaId = "{{ user.upazila_id }}"; // Upazila ID from backend
 
-    // Set the division dropdown to the saved value (if any)
+    // Select the dropdown elements
     const divisionSelect = document.getElementById("division");
-    if (divisionId) {
-        divisionSelect.value = divisionId;
-        loadDistricts(divisionId, districtId, upazilaId);
-    }
-
-    // Ensure districts and upazilas reset if no division is selected
     const districtSelect = document.getElementById("district");
     const upazilaSelect = document.getElementById("upazila");
 
+    // Set the division value if it exists
+    if (divisionId && divisionSelect.querySelector(`option[value="${divisionId}"]`)) {
+        divisionSelect.value = divisionId;
+        loadDistricts(divisionId, districtId, upazilaId);
+    } else {
+        divisionSelect.value = "";
+        districtSelect.innerHTML = `<option value="">Select Division first</option>`;
+        upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
+        districtSelect.disabled = true;
+        upazilaSelect.disabled = true;
+
+    }
+
+    // Disable districts and upazilas if no division is selected
     if (!divisionId) {
         districtSelect.innerHTML = `<option value="">Select Division first</option>`;
         upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
@@ -268,6 +277,7 @@ document.addEventListener("DOMContentLoaded", function () {
             loadDistricts(selectedDivision);
         } else {
             districtSelect.innerHTML = `<option value="">Select Division first</option>`;
+            districtSelect.disabled = true;
         }
     });
 
@@ -281,6 +291,7 @@ document.addEventListener("DOMContentLoaded", function () {
             loadUpazilas(selectedDistrict);
         } else {
             upazilaSelect.innerHTML = `<option value="">Select District First</option>`;
+            upazilaSelect.disabled = true;
         }
     });
 });
@@ -326,27 +337,6 @@ function loadUpazilas(selectedDistrictId, selectedUpazilaId = null) {
         })
         .catch(error => console.error("Error loading upazilas:", error));
 }
-
-
-function disableAddressFields() {
-    document.getElementById('district').disabled = true;
-    document.getElementById('upazila').disabled = true;
-}
-
-document.getElementById('division').addEventListener('change', function() {
-    document.getElementById('district').disabled = this.value === "";
-    document.getElementById('district').innerHTML = `<option value="">Select Divission first</option>`;
-    document.getElementById('upazila').disabled = true;
-    document.getElementById('upazila').innerHTML = `<option value="">Select District First</option>`;
-});
-
-document.getElementById('district').addEventListener('change', function() {
-    document.getElementById('upazila').disabled = this.value === "";
-    document.getElementById('upazila').innerHTML = `<option value="">Select Upazila/City Corporation</option>`;
-});
-
-
-
 
 function enableEdit(fieldId) {
     let inputField = document.getElementById(fieldId);
@@ -424,13 +414,93 @@ function saveProfile(fieldId = null, value = null) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedData)
     })
-    .then(response => response.json())
+    .then(response => {
+        // Check if the response is JSON before parsing
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid response from server. Check server logs.");
+        }
+        return response.json();
+    })
     .then(data => {
         alert(data.message);
     })
     .catch(error => console.error("Error:", error));
 }
 
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.querySelector("form");
+    const submitBtn = document.getElementById("submitBtn");  
+
+    // Disable submit button initially
+    submitBtn.disabled = true;
+
+    // Validation rules
+    const fields = {
+        "patient_name": { min: 2, max: 100 },
+        "hospital_name": { min: 2, max: 255 },
+        "reason": { min: 5, max: 500 }
+    };
+
+    function validateField(input) {
+        const fieldName = input.name;
+        const value = input.value.trim();
+        const errorContainer = input.nextElementSibling;
+
+        if (!errorContainer) return false;  // ✅ Prevents `null` error
+
+        if (fields[fieldName]) {
+            const min = fields[fieldName].min;
+            const max = fields[fieldName].max;
+
+            if (value.length === 0) {
+                errorContainer.textContent = "";  // No error for empty fields
+                return false;
+            } 
+            else if (value.length < min) {
+                errorContainer.textContent = `Too short (Min ${min} characters)`;
+                return false;
+            } 
+            else if (value.length > max) {
+                errorContainer.textContent = `Too long (Max ${max} characters)`;
+                return false;
+            } 
+            else {
+                errorContainer.textContent = "";
+                return true;
+            }
+        }
+        return true;
+    }
+
+    function validateForm() {
+        let isValid = true;
+        Object.keys(fields).forEach(field => {
+            const input = document.querySelector(`[name="${field}"]`);
+            if (input && !validateField(input)) {
+                isValid = false;
+            }
+        });
+        submitBtn.disabled = !isValid;
+    }
+
+    Object.keys(fields).forEach(field => {
+        const input = document.querySelector(`[name="${field}"]`);
+        if (input) {
+            input.addEventListener("input", () => {
+                validateField(input);
+                validateForm();
+            });
+
+            input.addEventListener("blur", () => {
+                validateField(input);
+                validateForm();
+            });
+        }
+    });
+
+    validateForm();  // ✅ Run once to set initial state
+});
 </script>
 
 
