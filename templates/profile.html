@@ -198,7 +198,11 @@
                                 <textarea name="reason" class="form-control" rows="3" required></textarea>
                                 <span class="form-text text-danger"></span>
                             </div>
-
+                            <div class="mb-3">
+                                <label class="fw-bold">Upload Supporting Images (optional, max 10)</label>
+                                <input type="file" name="images" class="form-control" accept="image/*" multiple>
+                                <small class="text-muted">You can upload up to 10 images.</small>
+                            </div>
                             <button type="submit" id="submitBtn" class="btn btn-danger w-100" disabled>
                                 <i class="fas fa-tint"></i> Submit Blood Request
                             </button>

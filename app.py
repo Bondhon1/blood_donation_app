@@ -385,7 +385,16 @@ def new_blood_request():
         user = User.query.filter_by(id=user_id).first()
         if not user:
             return jsonify({"message": "User not found"}), 404
+        # ✅ Check if essential user details are missing
+        required_fields = [user.name, user.phone, user.blood_group, user.district_id, user.division_id, user.upazila_id]
+        print(required_fields)  # Debugging
 
+        # ✅ Properly check for missing values
+        if any(field is None or str(field).strip().lower() in ["none", "null", ""] for field in required_fields):
+            flash("Please complete your profile before submitting a blood request.", "warning")
+            return redirect(url_for('profile', username=user.username))  # Redirect to profile update page
+
+        
         # ✅ Handle multiple image uploads
         image_filenames = []
         images = request.files.getlist('images')  # ✅ Fetch files properly
