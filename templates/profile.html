@@ -126,14 +126,20 @@
 
             </div>
 
-            <!-- Past Requests Tab -->
-            <div id="requests" class="profile-tab">Past Requests Content</div>
+            
+            <div id="requests" class="profile-tab">
+                <h4 class="mb-3">Your Past Blood Requests</h4>
+                
+                <div id="request-feed">
+                    <!-- Blood request posts will be loaded here dynamically -->
+                </div>
+            
+                <button id="load-more" class="btn btn-outline-primary w-100 mt-3 d-none" onclick="loadMoreRequests()">Load More</button>
+            </div>
+            
 
             <!-- New Request Tab -->
             <div id="new-request" class="profile-tab container">
-                
-                    
-
                         <h4 class="mb-3">Post a New Blood Request</h4>
 
                         <form action="{{ url_for('new_blood_request') }}" method="POST" enctype="multipart/form-data">
@@ -207,8 +213,6 @@
                                 <i class="fas fa-tint"></i> Submit Blood Request
                             </button>
                         </form>
-
-                  
             </div>
 
 
@@ -505,5 +509,116 @@ document.addEventListener("DOMContentLoaded", function () {
 
     validateForm();  // ✅ Run once to set initial state
 });
+let offset = 0;  // Track how many posts are loaded
+const limit = 6; // Load 6 posts at a time
+
+// Function to load more blood requests
+function loadMoreRequests() {
+    console.log("Loading past requests...");  // Debug log
+
+    fetch(`/load_past_requests?offset=${offset}&limit=${limit}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log("API Response:", data);  // Debug log
+
+            if (data.requests.length > 0) {
+                data.requests.forEach(request => {
+                    console.log("Appending request:", request);  // Debug log
+                    document.getElementById("request-feed").innerHTML += createPostHTML(request);
+                });
+                offset += limit;
+
+                if (data.has_more) {
+                    document.getElementById("load-more").classList.remove("d-none");
+                } else {
+                    document.getElementById("load-more").classList.add("d-none");
+                }
+            }
+        })
+        .catch(error => console.error("Error loading requests:", error));
+}
+
+window.onload = () => {
+    console.log("Window loaded, calling loadMoreRequests...");
+    loadMoreRequests();
+};
+// Function to determine badge color for urgency
+function getUrgencyClass(status) {
+    return status === "Critical" ? "danger" : status === "Urgent" ? "warning" : "primary";
+}
+
+
+// Function to generate HTML for each post
+function createPostHTML(request) {
+    console.log("Creating post for:", request);  // Debug log
+    let imagesHTML = "";
+    let moreImages = request.images.length > 4 ? request.images.length - 4 : 0;
+
+    if (request.images.length > 0) {
+        imagesHTML = `
+            <div class="post-images-container">
+                ${request.images.slice(0, 4).map((img, index) => `
+                    <div class="post-img-box">
+                        <img src="/static/profile_pics/${img}" class="post-img" onclick="openSlider(${request.id}, ${index})">
+                    </div>
+                `).join('')}
+                ${moreImages > 0 ? `
+                    <div class="post-img-box more-images" onclick="openSlider(${request.id}, 0)">
+                        +${moreImages} more
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    }
+
+    return `
+        <div class="card shadow-sm post-card mb-3" data-id="${request.id}">
+            <div class="post-header d-flex align-items-center">
+                <a href="/profile/${request.user.username}" class="fw-bold">
+                    <img src="/static/profile_pics/${request.user.profile_picture}" class="post-profile-pic">
+                </a>
+                <div class="post-user-info">
+                    <a href="/profile/${request.user.username}" class="fw-bold">${request.user.username}</a>
+                    <div class="text-muted small">${request.created_at}</div>
+                </div>
+            </div>
+            <div class="post-body">
+                <p><strong>Patient Name:</strong> ${request.user.username}</p>
+                <p><strong>Blood Group:</strong> ${request.blood_group}</p>
+                <p><strong>Hospital:</strong> ${request.hospital_name}</p>
+                <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
+                <p>${request.reason}</p>
+                ${imagesHTML}
+            </div>
+        </div>
+    `;
+}
+
+// Function to open image slider
+function openSlider(postId, index) {
+    const images = document.querySelectorAll(`.post-card[data-id='${postId}'] .post-img`);
+    const slider = document.getElementById("image-slider");
+    
+    let sliderHTML = `
+        <div class="slider-content">
+            <span class="close-btn" onclick="closeSlider()">&times;</span>
+            <div class="slider-images">
+                ${Array.from(images).map(img => `<img src="${img.src}" class="slider-img">`).join('')}
+            </div>
+        </div>
+    `;
+
+    slider.innerHTML = sliderHTML;
+    slider.style.display = "flex";
+}
+
+// Function to close slider
+function closeSlider() {
+    document.getElementById("image-slider").style.display = "none";
+}
+
+
+
 </script>
+<div id="image-slider" class="image-slider" onclick="closeSlider()"></div>
 {% endblock %}
