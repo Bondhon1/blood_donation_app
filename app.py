@@ -121,7 +121,6 @@ def verify_email(token):
 def generate_email_token(email):
     return serializer.dumps(email, salt="email-confirm")
 
-### ✅ API: User Login (Redirect to News Feed)
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -130,6 +129,7 @@ def login():
 
         if user and user.check_password(form.password.data):  # ✅ Using method in User model
             session['user_id'] = user.id
+            session['username'] = user.username  # ✅ Store username in session
             flash("Login successful!", "success")
             return redirect(url_for('news_feed', username=user.username))  # ✅ Fixed
         
@@ -137,6 +137,7 @@ def login():
         return redirect(url_for('login'))  # ✅ Redirect after flashing message
     
     return render_template('login.html', form=form)
+
 
 @app.before_request
 def update_last_active():
@@ -464,6 +465,7 @@ def admin_login_page():
 
 @app.route("/admin_login", methods=["POST"])
 def admin_login():
+    
     username = request.form["username"]
     password = request.form["password"]
 
@@ -471,6 +473,9 @@ def admin_login():
 
     if admin and admin.check_password(password):
         session["admin_id"] = admin.admin_id  # ✅ Ensure this matches your model
+        session['admin_username'] = admin.admin_username
+        session["is_admin"] = True
+        
         return redirect(url_for("admin_dashboard"))
 
     return render_template("admin_login.html", error="Invalid credentials")
@@ -479,7 +484,7 @@ def admin_login():
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if 'admin_id' not in session:
-        print('Error here')
+        
         flash("Please log in as an admin.", "danger")
         return redirect(url_for('admin_login'))
 
@@ -495,8 +500,8 @@ def admin_dashboard():
 
 @app.route("/admin-logout")
 def admin_logout():
-    session.pop("admin_logged_in", None)
-    return redirect(url_for("admin_login_page"))
+    session.clear()
+    return redirect(url_for("home"))
 
 if __name__ == '__main__':
     with app.app_context():
