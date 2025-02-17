@@ -64,15 +64,12 @@ class BloodRequest(db.Model):
     hospital_name = db.Column(db.String(200), nullable=False)
     urgency_status = db.Column(db.String(20), nullable=False)  # e.g., "High", "Medium", "Low"
     reason = db.Column(db.Text, nullable=False)
-    images = db.Column(db.String(255))  # Path to images if any
+    images = db.Column(db.Text)  # Path to images if any
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     location = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), default="Open")  # New status field
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     
-    
-
-
 
 class Admin(db.Model):  # Fix the typo here
     admin_id = db.Column(db.Integer, primary_key=True)

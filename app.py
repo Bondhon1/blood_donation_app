@@ -388,7 +388,7 @@ def new_blood_request():
             return jsonify({"message": "User not found"}), 404
         # ✅ Check if essential user details are missing
         required_fields = [user.name, user.phone, user.blood_group, user.district_id, user.division_id, user.upazila_id]
-        print(required_fields)  # Debugging
+        
 
         # ✅ Properly check for missing values
         if any(field is None or str(field).strip().lower() in ["none", "null", ""] for field in required_fields):
@@ -452,6 +452,30 @@ def new_blood_request():
         divisions=Divisions.query.all(), 
         blood_requests=BloodRequest.query.filter_by(user_id=user.id).all()  
     )
+@app.route('/load_past_requests')
+def load_past_requests():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    offset = int(request.args.get("offset", 0))
+    limit = int(request.args.get("limit", 6))
+
+    requests = BloodRequest.query.filter_by(user_id=session['user_id']).order_by(BloodRequest.created_at.desc()).offset(offset).limit(limit).all()
+    has_more = BloodRequest.query.filter_by(user_id=session['user_id']).count() > offset + limit
+
+    return jsonify({
+        "requests": [{
+            "id": r.id,
+            "user": {"id": r.user.id, "username": r.user.username, "profile_picture": r.user.profile_picture},
+            "blood_group": r.blood_group,
+            "hospital_name": r.hospital_name,
+            "urgency_status": r.urgency_status,
+            "reason": r.reason,
+            "created_at": r.created_at.strftime("%Y-%m-%d %H:%M"),
+            "images": r.images.split(",") if r.images else []
+        } for r in requests],
+        "has_more": has_more
+    })
 
 @app.route("/admin_login")
 def admin_login_page():

@@ -1,166 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Blood Donation System{% endblock %}</title>
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-
-    <!-- FontAwesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-
-    <!-- jQuery (for search pop-up handling) -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-</head>
-
-<body>
-    <header>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-danger fixed-top">
-            <div class="container-fluid">
-                <!-- Logo -->
-                <a class="navbar-brand" href="{{ url_for('home') }}">
-                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo" height="50">
-                </a>
-
-                {% if session.get('user_id') or session.get('admin_username') %}
-                    <div class="search-container position-relative">
-                        <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
-                        <div id="searchResults" class="dropdown-popup"></div>
-                    </div>
-
-                    <p>Your Location:</p>
-                    <p>District: {{ session.get('district', 'Unknown') }}</p>
-                    <p>Division: {{ session.get('division', 'Unknown') }}</p>
-                {% endif %}
-
-                <!-- Navbar Links -->
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav ms-auto">
-                        {% if session.get('user_id') or session.get('admin_username') %}
-                            <!-- If a User is logged in -->
-                            <li class="nav-item">
-                                <button class="btn btn-outline-light me-2" onclick="location.reload()">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                            </li>
-                            <li class="nav-item">
-                                {% if session.get('username') %}
-                                <a href="{{ url_for('news_feed', username=user.username) }}" class="btn btn-outline-light me-2 nav-link">
-                                    <i class="fas fa-newspaper"></i> 
-                                    <span class="hide-on-mobile"> News Feed</span>
-                                </a>
-                                {% else %}
-                                    <a href="#" class="btn btn-outline-light me-2 nav-link disabled">
-                                        <i class="fas fa-newspaper"></i><span class="hide-on-mobile"> News Feed</span>
-                                    </a>
-                                {% endif %}
-
-                            </li>
-                            <li class="nav-item">
-                                <a href="#" class="btn btn-outline-light me-2 nav-link">
-                                    <i class="fas fa-user-md"></i> 
-                                    <span class="hide-on-mobile"> Doctor’s Help</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="#" class="btn btn-outline-light me-2 nav-link">
-                                    <i class="fas fa-comments"></i> 
-                                    <span class="hide-on-mobile"> Chat with Donor</span>
-                                </a>
-                            </li>
-
-                            <!-- Notifications -->
-                            <li class="nav-item">
-                                <button class="btn btn-outline-light me-2" id="notifBtn">
-                                    <i class="fas fa-bell"></i>
-                                    {% if session.get('notifications') %}
-                                        <span class="badge bg-danger">{{ session['notifications']|length }}</span>
-                                    {% endif %}
-                                </button>
-                                <div id="notifPopup" class="dropdown-popup">
-                                    {% if session.get('notifications') %}
-                                        <div class="notifications-container">
-                                            {% for notification in session['notifications'] %}
-                                                <div class="alert alert-info alert-dismissible fade show">
-                                                    {{ notification | safe }}
-                                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                                </div>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <p>No new notifications</p>
-                                    {% endif %}
-                                </div>
-                            </li>
-
-                            <!-- Profile Dropdown -->
-                            <li class="nav-item">
-                                <button class="btn btn-outline-light me-2" id="profileBtn">
-                                    <i class="fas fa-user"></i>
-                                </button>
-                                <div id="profilePopup" class="dropdown-popup">
-                                    
-                                    {% if session.get('username') %}
-                                        <p>Welcome, {{ session.get('username') }}</p>
-                                        <a href="{{ url_for('profile', username=session['username']) }}" class="dropdown-item">View Profile</a>
-                                        <a href="{{ url_for('logout') }}" class="dropdown-item">Logout</a>
-                                    {% else %}
-                                        {% if 'admin_id' not in session %}
-                                            <a href="{{ url_for('login') }}" class="dropdown-item">Login</a>
-                                        {% endif %}
-                                    {% endif %}
-
-                                    {% if session['is_admin'] %}
-                                        
-                                        <p>Welcome, {{ session.get('admin_username', 'Admin') }}</p>
-                                        <a href="{{ url_for('admin_dashboard') }}" class="dropdown-item">Admin Dashboard</a>
-                                        <a href="{{ url_for('admin_logout') }}" class="dropdown-item">Admin Logout</a>
-                                    {% endif %}
-
-
-                                </div>
-                            </li>
-
-                        {% else %}
-                            <!-- If No User is Logged In -->
-                            <li class="nav-item"><a href="{{ url_for('login') }}" class="btn btn-outline-light me-2">Login</a></li>
-                            <li class="nav-item"><a href="{{ url_for('register') }}" class="btn btn-outline-light me-2">Register</a></li>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}Blood Donation System{% endblock %}</title>
+    
+        <!-- Favicon (Title Bar Logo) -->
+        <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+    
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+        <!-- FontAwesome for Icons -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+        <!-- jQuery -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    </head>
+    
+    <body>
+        <header>
+            <nav class="navbar navbar-expand-lg navbar-dark bg-danger fixed-top">
+                <div class="container-fluid">
+                    <!-- Logo -->
+                    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo" height="50">
+                        
+                        {% if not session.get('user_id') and not session.get('admin_username') %}
+                            <span class="ms-2 fw-bold text-white">LifeDrop</span>
                         {% endif %}
-                    </ul>
-                </div> <!-- End Collapse -->
-            </div>
-        </nav>
-    </header>
+                    </a>
+    
+                    <!-- Responsive Login & Register (Without Burger Button) -->
+                    <div class="ms-auto d-flex align-items-center">
+                        {% if not session.get('user_id') and not session.get('admin_username') %}
+                            <a href="{{ url_for('login') }}" class="btn btn-light me-2 d-inline-block d-md-none">Login</a>
+                            <a href="{{ url_for('register') }}" class="btn btn-outline-light me-2 d-inline-block d-md-none">Register</a>
+                        {% endif %}
+                    </div>
+                    {% if session.get('user_id') or session.get('admin_username') %}
+                        <div class="search-container position-relative">
+                            <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
+                            <div id="searchResults" class="dropdown-popup"></div>
+                        </div>
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+                        <p>Your Location:</p>
+                        <p>District: {{ session.get('district', 'Unknown') }}</p>
+                        <p>Division: {{ session.get('division', 'Unknown') }}</p>
+                    {% endif %}
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
-
-    <style>
-        .dropdown-popup {
-            display: none;
-            position: absolute;
-            right: 0;
-            color: rgb(22, 1, 1);
-            background: rgb(255, 253, 253);
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-            border-radius: 5px;
-            padding: 10px;
-            width: 250px;
-            z-index: 1000;
-        }
-        .dropdown-popup.show {
-            display: block;
-        }
-    </style>
-</body>
+                    <!-- Navbar Links -->
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        <ul class="navbar-nav ms-auto">
+                            {% if session.get('user_id') or session.get('admin_username') %}
+                                <li class="nav-item">
+                                    <button class="btn btn-outline-light me-2" onclick="location.reload()">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ url_for('news_feed', username=session.get('username', '')) }}" 
+                                       class="btn btn-outline-light me-2 nav-link">
+                                        <i class="fas fa-newspaper"></i> 
+                                        <span class="hide-on-mobile"> News Feed</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="#" class="btn btn-outline-light me-2 nav-link">
+                                        <i class="fas fa-user-md"></i> 
+                                        <span class="hide-on-mobile"> Doctor’s Help</span>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="#" class="btn btn-outline-light me-2 nav-link">
+                                        <i class="fas fa-comments"></i> 
+                                        <span class="hide-on-mobile"> Chat with Donor</span>
+                                    </a>
+                                </li>
+    
+                                <!-- Notifications -->
+                                <li class="nav-item">
+                                    <button class="btn btn-outline-light me-2" id="notifBtn">
+                                        <i class="fas fa-bell"></i>
+                                        {% if session.get('notifications') %}
+                                            <span class="badge bg-danger">{{ session['notifications']|length }}</span>
+                                        {% endif %}
+                                    </button>
+                                    <div id="notifPopup" class="dropdown-popup">
+                                        {% if session.get('notifications') %}
+                                            <div class="notifications-container">
+                                                {% for notification in session['notifications'] %}
+                                                    <div class="alert alert-info alert-dismissible fade show">
+                                                        {{ notification | safe }}
+                                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <p>No new notifications</p>
+                                        {% endif %}
+                                    </div>
+                                </li>
+    
+                                <!-- Profile Dropdown -->
+                                <li class="nav-item">
+                                    <button class="btn btn-outline-light me-2" id="profileBtn">
+                                        <i class="fas fa-user"></i>
+                                    </button>
+                                    <div id="profilePopup" class="dropdown-popup">
+                                        {% if session.get('username') %}
+                                            <p>Welcome, {{ session.get('username') }}</p>
+                                            <a href="{{ url_for('profile', username=session['username']) }}" class="dropdown-item">View Profile</a>
+                                            <a href="{{ url_for('logout') }}" class="dropdown-item">Logout</a>
+                                        {% else %}
+                                            {% if 'admin_id' not in session %}
+                                                <a href="{{ url_for('login') }}" class="dropdown-item">Login</a>
+                                            {% endif %}
+                                        {% endif %}
+    
+                                        {% if session.get('is_admin') %}
+                                            <p>Welcome, {{ session.get('admin_username', 'Admin') }}</p>
+                                            <a href="{{ url_for('admin_dashboard') }}" class="dropdown-item">Admin Dashboard</a>
+                                            <a href="{{ url_for('admin_logout') }}" class="dropdown-item">Admin Logout</a>
+                                        {% endif %}
+                                    </div>
+                                </li>
+                            {% else %}
+                                <!-- Large Screen Login/Register -->
+                                <li class="nav-item d-none d-md-inline-block">
+                                    <a href="{{ url_for('login') }}" class="btn btn-light me-2">Login</a>
+                                    <a href="{{ url_for('register') }}" class="btn btn-outline-light me-2">Register</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </div> <!-- End Collapse -->
+                </div>
+            </nav>
+        </header>
+    
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+    
+        <style>
+            .dropdown-popup {
+                display: none;
+                position: absolute;
+                right: 0;
+                color: rgb(22, 1, 1);
+                background: rgb(255, 253, 253);
+                box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                border-radius: 5px;
+                padding: 10px;
+                width: 250px;
+                z-index: 1000;
+            }
+            .dropdown-popup.show {
+                display: block;
+            }
+    
+            /* Mobile Responsiveness Fix */
+            @media (max-width: 768px) {
+                .btn-outline-light, .btn-light {
+                    width: 100%;
+                    margin-bottom: 5px;
+                }
+            }
+        </style>
+    </body>
 </html>
