@@ -129,7 +129,7 @@
             
             <div id="requests" class="profile-tab">
                 <h4 class="mb-3">Your Past Blood Requests</h4>
-                
+            
                 <div id="request-feed">
                     <!-- Blood request posts will be loaded here dynamically -->
                 </div>
@@ -509,21 +509,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
     validateForm();  // ✅ Run once to set initial state
 });
-let offset = 0;  // Track how many posts are loaded
+
+let offset = 0; // Track how many posts are loaded
 const limit = 6; // Load 6 posts at a time
 
 // Function to load more blood requests
 function loadMoreRequests() {
-    console.log("Loading past requests...");  // Debug log
+    console.log("Loading past requests...");
 
     fetch(`/load_past_requests?offset=${offset}&limit=${limit}`)
         .then(response => response.json())
         .then(data => {
-            console.log("API Response:", data);  // Debug log
+            console.log("API Response:", data);
 
             if (data.requests.length > 0) {
                 data.requests.forEach(request => {
-                    console.log("Appending request:", request);  // Debug log
+                    console.log("Appending request:", request);
                     document.getElementById("request-feed").innerHTML += createPostHTML(request);
                 });
                 offset += limit;
@@ -542,15 +543,14 @@ window.onload = () => {
     console.log("Window loaded, calling loadMoreRequests...");
     loadMoreRequests();
 };
+
 // Function to determine badge color for urgency
 function getUrgencyClass(status) {
     return status === "Critical" ? "danger" : status === "Urgent" ? "warning" : "primary";
 }
 
-
 // Function to generate HTML for each post
 function createPostHTML(request) {
-    console.log("Creating post for:", request);  // Debug log
     let imagesHTML = "";
     let moreImages = request.images.length > 4 ? request.images.length - 4 : 0;
 
@@ -572,7 +572,7 @@ function createPostHTML(request) {
     }
 
     return `
-        <div class="card shadow-sm post-card mb-3" data-id="${request.id}">
+        <div class="card shadow-sm post-card mb-3" data-id="${request.id}" data-images='${JSON.stringify(request.images)}'>
             <div class="post-header d-flex align-items-center">
                 <a href="/profile/${request.user.username}" class="fw-bold">
                     <img src="/static/profile_pics/${request.user.profile_picture}" class="post-profile-pic">
@@ -583,42 +583,204 @@ function createPostHTML(request) {
                 </div>
             </div>
             <div class="post-body">
-                <p><strong>Patient Name:</strong> ${request.user.username}</p>
                 <p><strong>Blood Group:</strong> ${request.blood_group}</p>
                 <p><strong>Hospital:</strong> ${request.hospital_name}</p>
                 <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
                 <p>${request.reason}</p>
                 ${imagesHTML}
             </div>
-        </div>
-    `;
-}
+            <div class="post-footer">
+                <div class="status-bar ${request.donor_assigned ? 'donor-assigned' : ''}">
+                    ${request.donor_assigned ? '<span class="text-success">Donor Assigned</span>' : '<span class="text-danger">No Donor Yet</span>'}
+                </div>
+                <div class="post-actions">
+                    <button class="upvote-btn" data-id="${request.id}" onclick="upvotePost(${request.id})">
+                    <i class="fas fa-thumbs-up"></i> <span id="upvote-count-${request.id}">${request.upvotes || 0}</span>
+                </button>
 
-// Function to open image slider
-function openSlider(postId, index) {
-    const images = document.querySelectorAll(`.post-card[data-id='${postId}'] .post-img`);
-    const slider = document.getElementById("image-slider");
-    
-    let sliderHTML = `
-        <div class="slider-content">
-            <span class="close-btn" onclick="closeSlider()">&times;</span>
-            <div class="slider-images">
-                ${Array.from(images).map(img => `<img src="${img.src}" class="slider-img">`).join('')}
+                    <button class="comment-toggle-btn" onclick="toggleComments(${request.id})">
+                        <i class="fas fa-comment"></i> Comments
+                    </button>
+                </div>
+                <div class="comments-section" id="comments-${request.id}" style="display: none;">
+                    <div class="comments-list" id="comments-list-${request.id}"></div>
+                    <div class="comment-input">
+                        <input type="text" id="comment-text-${request.id}" placeholder="Write a comment...">
+                        <button onclick="addComment(${request.id})">Post</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
+}
+function upvotePost(postId) {
+    fetch(`/upvote_request/${postId}`, { method: 'POST' })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server responded with ${response.status}`);
+            }
+            return response.json(); // ✅ Ensure parsing JSON only when response is valid
+        })
+        .then(data => {
+            if (data.success) {
+                document.getElementById(`upvote-count-${postId}`).innerText = data.upvotes;
+                
+                let upvoteBtn = document.querySelector(`.upvote-btn[data-id="${postId}"]`);
+                if (upvoteBtn) {
+                    upvoteBtn.classList.toggle("upvoted");
+                }
+            } else {
+                alert("Error: " + (data.error || "Unknown error occurred"));
+            }
+        })
+        .catch(error => console.error("Error upvoting post:", error));
+}
 
-    slider.innerHTML = sliderHTML;
+
+// Function to toggle comment section visibility
+function toggleComments(postId) {
+    let commentSection = document.getElementById(`comments-${postId}`);
+    if (commentSection.style.display === "none") {
+        commentSection.style.display = "block";
+        loadComments(postId);
+    } else {
+        commentSection.style.display = "none";
+    }
+}
+
+// Function to load comments
+function loadComments(postId) {
+    fetch(`/get_comments/${postId}`)
+        .then(response => response.json())
+        .then(data => {
+            let commentsList = document.getElementById(`comments-list-${postId}`);
+            commentsList.innerHTML = data.comments.map(c => `<p><strong>${c.username}:</strong> ${c.text}</p>`).join('');
+        })
+        .catch(error => console.error("Error loading comments:", error));
+}
+
+// Function to add a new comment
+function addComment(postId) {
+    let commentText = document.getElementById(`comment-text-${postId}`).value;
+    if (!commentText.trim()) return;
+
+    fetch(`/add_comment/${postId}`, {
+        method: "POST",
+        body: JSON.stringify({ text: commentText }),
+        headers: { "Content-Type": "application/json" }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadComments(postId);
+            document.getElementById(`comment-text-${postId}`).value = "";
+        }
+    })
+    .catch(error => console.error("Error adding comment:", error));
+}
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Ensure slider exists in the DOM
+    if (!document.getElementById("image-slider")) {
+        const sliderDiv = document.createElement("div");
+        sliderDiv.id = "image-slider";
+        sliderDiv.className = "image-slider";
+        document.body.appendChild(sliderDiv);
+    }
+
+    // Close slider when clicking outside the image
+    document.getElementById("image-slider").addEventListener("click", function (event) {
+        if (event.target.id === "image-slider") {
+            closeSlider();
+        }
+    });
+});
+
+let currentImageIndex = 0;
+let sliderImages = [];
+
+// Function to open the image slider
+function openSlider(postId, index) {
+    const post = document.querySelector(`.post-card[data-id='${postId}']`);
+    
+    // Retrieve all images for this post
+    const images = JSON.parse(post.getAttribute("data-images")); // Get full image list from attribute
+    
+    sliderImages = images;  // Store all images
+    currentImageIndex = index;  // Start from clicked image
+    
+    const slider = document.getElementById("image-slider");
+    updateSliderImage();
+
     slider.style.display = "flex";
 }
 
-// Function to close slider
+// Function to update the slider image
+function updateSliderImage() {
+    const sliderContent = document.getElementById("slider-content");
+    sliderContent.innerHTML = `
+        <span class="close-btn" onclick="closeSlider()">&times;</span>
+        <button class="nav-btn prev-btn" onclick="prevImage()">&#10094;</button>
+        <img id="slider-img" src="/static/profile_pics/${sliderImages[currentImageIndex]}" class="slider-img">
+        <button class="nav-btn next-btn" onclick="nextImage()">&#10095;</button>
+        <div class="zoom-controls">
+            <button onclick="zoomIn()">+</button>
+            <button onclick="zoomOut()">-</button>
+        </div>
+    `;
+}
+
+// Function to show the previous image
+function prevImage() {
+    if (currentImageIndex > 0) {
+        currentImageIndex--;
+        updateSliderImage();
+    }
+}
+
+// Function to show the next image
+function nextImage() {
+    if (currentImageIndex < sliderImages.length - 1) {
+        currentImageIndex++;
+        updateSliderImage();
+    }
+}
+
+// Function to close the slider
 function closeSlider() {
     document.getElementById("image-slider").style.display = "none";
 }
 
+// Function to zoom in
+function zoomIn() {
+    const img = document.getElementById("slider-img");
+    img.style.transform = `scale(${parseFloat(img.style.transform.replace("scale(", "").replace(")", "")) + 0.2 || 1.2})`;
+}
 
+// Function to zoom out
+function zoomOut() {
+    const img = document.getElementById("slider-img");
+    img.style.transform = `scale(${Math.max(parseFloat(img.style.transform.replace("scale(", "").replace(")", "")) - 0.2 || 0.8, 0.8)})`;
+}
+
+// Keyboard navigation
+document.addEventListener("keydown", function (event) {
+    if (document.getElementById("image-slider").style.display === "flex") {
+        if (event.key === "ArrowLeft") {
+            prevImage();
+        } else if (event.key === "ArrowRight") {
+            nextImage();
+        } else if (event.key === "Escape") {
+            closeSlider();
+        }
+    }
+});
 
 </script>
-<div id="image-slider" class="image-slider" onclick="closeSlider()"></div>
+
+<div id="image-slider" class="image-slider">
+    <div id="slider-content" class="slider-content"></div>
+</div>
 {% endblock %}

@@ -554,6 +554,97 @@ button:hover {
     font-size: 14px;
     cursor: pointer;
 }
+/* Post Card Styling */
+.post-card {
+    border-radius: 10px;
+    padding: 15px;
+    background: #fff;
+}
+
+/* Post Header */
+.post-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Status Bar */
+.status-bar {
+    padding: 5px;
+    text-align: center;
+    font-size: 14px;
+    border-radius: 5px;
+    background: #f8f9fa;
+}
+
+.donor-assigned {
+    background: #d4edda;
+    color: #155724;
+}
+
+/* Post Actions */
+.post-actions {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 10px;
+}
+
+.upvote-btn, .comment-toggle-btn {
+    color: black;
+    border: 2px solid #ccc;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.upvote-btn i, .comment-toggle-btn i {
+    margin-right: 5px;
+}
+.upvote-btn.upvoted {
+    color: blue;
+    font-weight: bold;
+}
+
+/* Comments */
+.comments-section {
+    text-align: left;
+    margin-top: 10px;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+}
+
+.comment-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.comment-input input {
+    flex-grow: 1;  /* Expands to fill available space */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.comment-input button {
+    padding: 8px 12px;
+    background-color: #e74c3c; /* Red theme */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap; /* Prevents button from stretching */
+}
+
+.comment-input button:hover {
+    background-color: #c0392b;
+}
+
 
 /* Image Slider */
 .image-slider {

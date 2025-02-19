@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote
 from forms import RegistrationForm, LoginForm, BloodRequestForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -466,16 +466,69 @@ def load_past_requests():
     return jsonify({
         "requests": [{
             "id": r.id,
-            "user": {"id": r.user.id, "username": r.user.username, "profile_picture": r.user.profile_picture},
+            "user": {
+                "id": r.user.id,
+                "username": r.user.username,
+                "profile_picture": r.user.profile_picture
+            },
             "blood_group": r.blood_group,
             "hospital_name": r.hospital_name,
             "urgency_status": r.urgency_status,
             "reason": r.reason,
             "created_at": r.created_at.strftime("%Y-%m-%d %H:%M"),
-            "images": r.images.split(",") if r.images else []
+            "images": r.images.split(",") if r.images else [],
+            "upvotes": r.upvote_count  # ✅ Add this line
         } for r in requests],
         "has_more": has_more
     })
+
+
+@app.route('/upvote_request/<int:post_id>', methods=['POST'])
+def upvote_request(post_id):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    user_id = session['user_id']
+    blood_request = BloodRequest.query.get_or_404(post_id)
+
+    existing_upvote = BloodRequestUpvote.query.filter_by(
+        user_id=user_id, blood_request_id=post_id
+    ).first()
+
+    if existing_upvote:
+        # ✅ Remove the upvote and decrement count
+        db.session.delete(existing_upvote)
+        blood_request.upvote_count = max(0, blood_request.upvote_count - 1)
+    else:
+        # ✅ Add new upvote and increment count
+        new_upvote = BloodRequestUpvote(user_id=user_id, blood_request_id=post_id)
+        db.session.add(new_upvote)
+        blood_request.upvote_count += 1
+
+    db.session.commit()
+
+    return jsonify({"success": True, "upvotes": blood_request.upvote_count})
+
+
+@app.route('/get_comments/<int:request_id>')
+def get_comments(request_id):
+    comments = Comment.query.filter_by(blood_request_id=request_id).order_by(Comment.created_at.desc()).all()
+    return jsonify({"comments": [{"username": c.user.username, "text": c.text} for c in comments]})
+
+@app.route('/add_comment/<int:request_id>', methods=['POST'])
+def add_comment(request_id):
+    if 'user_id' not in session:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data.get("text"):
+        return jsonify({"success": False, "error": "Empty comment"}), 400
+
+    new_comment = Comment(user_id=session['user_id'], blood_request_id=request_id, text=data["text"])
+    db.session.add(new_comment)
+    db.session.commit()
+
+    return jsonify({"success": True})
 
 @app.route("/admin_login")
 def admin_login_page():

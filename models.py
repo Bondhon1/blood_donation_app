@@ -34,6 +34,9 @@ class User(db.Model):
     division = db.relationship('Divisions', backref='users', lazy=True)
     district = db.relationship('Districts', backref='users', lazy=True)
     upazila = db.relationship('Upazilas', backref='users', lazy=True)
+    comments = db.relationship('Comment', back_populates='user', lazy=True)
+    blood_request_upvotes = db.relationship('BloodRequestUpvote', back_populates='user', lazy=True)
+
 
     def __init__(self, username, email, password, name=None, phone=None, address=None, blood_group=None, medical_history=None, profile_picture="default.jpg", cover_photo="default_cover.jpg", division=None, district=None, Upazila=None):
         self.username = username
@@ -69,7 +72,12 @@ class BloodRequest(db.Model):
     location = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), default="Open")  # New status field
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
+    upvote_count = db.Column(db.Integer, default=0)  # ✅ New column to store upvotes
+    upvotes = db.relationship('BloodRequestUpvote', back_populates='blood_request', lazy=True)
+
+    comments = db.relationship('Comment', back_populates='blood_request', lazy=True)
     
+
 
 class Admin(db.Model):  # Fix the typo here
     admin_id = db.Column(db.Integer, primary_key=True)
@@ -107,3 +115,26 @@ class Upazilas(db.Model):
     district_id = db.Column(db.Integer, db.ForeignKey('districts.id'), nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    blood_request_id = db.Column(db.Integer, db.ForeignKey('blood_request.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ✅ Use back_populates to explicitly define relationships
+    user = db.relationship('User', back_populates='comments')
+    blood_request = db.relationship('BloodRequest', back_populates='comments')
+
+class BloodRequestUpvote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    blood_request_id = db.Column(db.Integer, db.ForeignKey('blood_request.id'), nullable=False)
+
+    user = db.relationship('User', back_populates='blood_request_upvotes')
+    blood_request = db.relationship('BloodRequest', back_populates='upvotes')
+
+    # Ensure uniqueness: One user can upvote only once per request
+    __table_args__ = (db.UniqueConstraint('user_id', 'blood_request_id', name='unique_upvote'),)
+
