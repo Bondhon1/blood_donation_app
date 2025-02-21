@@ -566,6 +566,8 @@ button:hover {
     display: flex;
     align-items: center;
     margin-bottom: 10px;
+    text-align : left;
+    font-size: 13px;
 }
 
 /* Status Bar */
@@ -746,4 +748,37 @@ button:hover {
 
 .zoom-btn:hover {
     background: #ddd;
+}
+/* Donor Section Styling */
+.donor-tab {
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+}
+
+.donor-profile-card {
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.donor-form {
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+}
+
+.editable-field {
+    margin-bottom: 10px;
+}
+
+.editable-input {
+    width: 100%;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 4px;
 }

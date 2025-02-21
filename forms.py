@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, SelectField, DateField, IntegerField, TextAreaField, FileField, MultipleFileField, FloatField
-from wtforms.validators import DataRequired, Email, EqualTo, Length
+from flask_wtf.file import FileAllowed
+from wtforms import StringField, PasswordField, SubmitField, SelectField, DateField, IntegerField, TextAreaField, FileField, MultipleFileField, FloatField, BooleanField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, InputRequired
 
 class RegistrationForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=3, max=25)])
@@ -26,3 +27,11 @@ class BloodRequestForm(FlaskForm):
     urgency_status = SelectField("Urgency Status", choices=[("Normal", "Normal"), ("Urgent", "Urgent"), ("Critical", "Critical")], validators=[DataRequired()])
     reason = TextAreaField("Reason for Request", validators=[DataRequired(), Length(min=5, max=500)])
     images = MultipleFileField("Upload Supporting Documents (Optional)")  # ✅ Now supports multiple images
+class DonorApplicationForm(FlaskForm):
+    date_of_birth = DateField('Date of Birth', format='%Y-%m-%d', validators=[InputRequired()])
+    nid_or_birth_certificate = FileField('Upload NID or Birth Certificate', validators=[InputRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
+    has_donated_before = BooleanField('Have you donated blood before?')
+    last_donation_date = DateField('Last Donation Date', format='%Y-%m-%d', validators=[Optional()])
+    medical_conditions = TextAreaField('Medical Conditions', validators=[Optional()])
+    medical_history_images = MultipleFileField('Upload Medical History Images (Optional)', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    submit = SubmitField('Apply as Donor')

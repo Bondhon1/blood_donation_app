@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote
-from forms import RegistrationForm, LoginForm, BloodRequestForm
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication
+from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -267,14 +267,16 @@ def inject_user():
 
     return dict(user=user)
 
-@app.route('/profile/<username>')
+@app.route('/profile/<username>', methods=['GET', 'POST'])
 def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
+    donor = DonorApplication.query.filter_by(user_id=user.id).first()
     blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
-    divisions = Divisions.query.all()  # Fetch divisions from the database
-    form = BloodRequestForm()  # Create a new form instance
+    divisions = Divisions.query.all()
+    form = BloodRequestForm()
+    donor_application_form = DonorApplicationForm()
 
-    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions, form=form)
+    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions, form=form, donor_application_form=donor_application_form, donor=donor)
 
 @app.route('/get_districts/<int:division_id>')
 def get_districts(division_id):
@@ -529,6 +531,73 @@ def add_comment(request_id):
     db.session.commit()
 
     return jsonify({"success": True})
+@app.route('/become_donor', methods=['POST'])
+def become_donor():
+    if 'user_id' not in session:
+        flash("You need to log in to apply.", "danger")
+        return redirect(url_for('login'))
+
+    user = db.session.get(User, session['user_id'])
+    existing_application = DonorApplication.query.filter_by(user_id=user.id).first()
+
+    if existing_application:
+        flash("You are already a donor or your application is pending.", "info")
+        return redirect(url_for('profile', username=user.username))
+
+    form = DonorApplicationForm()
+
+    if form.validate_on_submit():
+        has_donated_before = request.form.get("has_donated_before") == "yes"
+        last_donation_date = form.last_donation_date.data if has_donated_before else None
+
+        nid_filename = secure_filename(form.nid_or_birth_certificate.data.filename)
+        form.nid_or_birth_certificate.data.save(os.path.join('static/uploads/nid/', nid_filename))
+
+        medical_images = []
+        if form.medical_history_images.data:
+            for file in form.medical_history_images.data:
+                filename = secure_filename(file.filename)
+                file.save(os.path.join('static/uploads/medical/', filename))
+                medical_images.append(filename)
+
+        new_application = DonorApplication(
+            user_id=user.id,
+            date_of_birth=form.date_of_birth.data,
+            nid_or_birth_certificate=nid_filename,
+            has_donated_before=has_donated_before,
+            last_donation_date=last_donation_date,
+            medical_conditions=form.medical_conditions.data,
+            medical_history_images=",".join(medical_images) if medical_images else None,
+            status="Pending"
+        )
+
+        db.session.add(new_application)
+        db.session.commit()
+        
+
+    return jsonify({"message": "Request sent successfully"})
+
+
+@app.route('/update_donor_info', methods=['POST'])
+def update_donor_info():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    user = db.session.get(User, session['user_id'])
+    donor = DonorApplication.query.filter_by(user_id=user.id).first()
+
+    if not donor:
+        return jsonify({"error": "Donor not found"}), 404
+
+    data = request.get_json()
+    donor.last_donation_date = data.get("last_donation_date")
+    donor.medical_conditions = data.get("medical_conditions")
+
+    db.session.commit()
+    return jsonify({"message": "Updated successfully"})
+
+
+
 
 @app.route("/admin_login")
 def admin_login_page():

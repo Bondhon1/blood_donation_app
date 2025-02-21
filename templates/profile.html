@@ -216,8 +216,87 @@
             </div>
 
 
-            <!-- Become a Donor Tab -->
-            <div id="donor" class="profile-tab">Become a Donor Content</div>
+            <!-- Inside the Become a Donor Tab -->
+            <div id="donor" class="profile-tab">
+
+                <h4>Become a Donor</h4>
+            
+                {% if donor %}
+                    <div class="donor-profile-card">
+                        <h5>Your Donor Profile</h5>
+                        <p><strong>Status:</strong> {{ donor.status }}</p>
+            
+                        <div class="editable-field">
+                            <label for="last_donation_date"><strong>Last Donation Date:</strong></label>
+                            <input type="date" id="last_donation_date" value="{{ donor.last_donation_date or '' }}" class="form-control editable-input">
+                        </div>
+            
+                        <div class="editable-field">
+                            <label for="medical_conditions"><strong>Medical Conditions:</strong></label>
+                            <textarea id="medical_conditions" class="form-control editable-input">{{ donor.medical_conditions or "None" }}</textarea>
+                        </div>
+            
+                        <p><strong>NID/Birth Certificate:</strong> 
+                            <a href="{{ url_for('static', filename='uploads/nid/' + donor.nid_or_birth_certificate) }}" target="_blank">View</a>
+                        </p>
+            
+                        <button id="saveChangesBtn" class="btn btn-success">Save Changes</button>
+                    </div>
+            
+                {% else %}
+                    <form id="donorForm" method="POST" enctype="multipart/form-data" data-url="{{ url_for('become_donor') }}" class="donor-form">
+                        {{ donor_application_form.hidden_tag() }}
+            
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" readonly>
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" class="form-control" value="{{ user.email }}" readonly>
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input type="text" class="form-control" value="{{ user.address }}" readonly>
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            {{ donor_application_form.date_of_birth(class="form-control") }}
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Upload NID or Birth Certificate</label>
+                            {{ donor_application_form.nid_or_birth_certificate(class="form-control-file") }}
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Have you donated blood before?</label>
+                            <input type="checkbox" id="has_donated_before" name="has_donated_before" value="yes">
+                        </div>
+            
+                        <div class="form-group last-donation-group" style="display: none;">
+                            <label>Last Donation Date (if applicable)</label>
+                            {{ donor_application_form.last_donation_date(class="form-control", id="last_donation_date") }}
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Medical Conditions (if any)</label>
+                            {{ donor_application_form.medical_conditions(class="form-control") }}
+                        </div>
+            
+                        <div class="form-group">
+                            <label>Upload Medical History Images (Optional)</label>
+                            {{ donor_application_form.medical_history_images(class="form-control-file") }}
+                        </div>
+            
+                        <button type="submit" class="btn btn-primary">Submit Application</button>
+                    </form>
+                {% endif %}
+            </div>
+            
         </div>
     </div>
 </div>
@@ -777,6 +856,67 @@ document.addEventListener("keydown", function (event) {
         }
     }
 });
+document.addEventListener("DOMContentLoaded", function () {
+    let donatedBeforeCheckbox = document.getElementById("has_donated_before");
+    let lastDonationGroup = document.querySelector(".last-donation-group");
+
+    if (donatedBeforeCheckbox) {
+        donatedBeforeCheckbox.addEventListener("change", function () {
+            lastDonationGroup.style.display = this.checked ? "block" : "none";
+        });
+    }
+
+    // AJAX form submission for donor application
+    let donorForm = document.getElementById("donorForm");
+    if (donorForm) {
+        donorForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            let formData = new FormData(this);
+            let formUrl = this.getAttribute("data-url");
+
+            fetch(formUrl, {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Request sent successfully");
+                window.location.reload();
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    }
+
+    // Save Changes for donor profile (Editable fields)
+    let saveChangesBtn = document.getElementById("saveChangesBtn");
+    if (saveChangesBtn) {
+        saveChangesBtn.addEventListener("click", function () {
+            let lastDonationDate = document.getElementById("last_donation_date").value;
+            let medicalConditions = document.getElementById("medical_conditions").value;
+
+            fetch("/update_donor_info", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    last_donation_date: lastDonationDate,
+                    medical_conditions: medicalConditions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Changes saved successfully");
+                window.location.reload();
+            })
+            .catch(error => console.error("Error:", error));
+        });
+    }
+});
+
+
+
 
 </script>
 

@@ -138,3 +138,17 @@ class BloodRequestUpvote(db.Model):
     # Ensure uniqueness: One user can upvote only once per request
     __table_args__ = (db.UniqueConstraint('user_id', 'blood_request_id', name='unique_upvote'),)
 
+class DonorApplication(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date_of_birth = db.Column(db.Date, nullable=False)
+    nid_or_birth_certificate = db.Column(db.String(255), nullable=False)  # Image path
+    has_donated_before = db.Column(db.Boolean, nullable=False)
+    last_donation_date = db.Column(db.Date, nullable=True)
+    medical_conditions = db.Column(db.Text, nullable=True)
+    medical_history_images = db.Column(db.String(500), nullable=True)  # Comma-separated image paths
+    status = db.Column(db.String(20), default="Pending")
+
+    user = db.relationship('User', backref=db.backref('donor_application', uselist=False))
+
+
