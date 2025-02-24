@@ -76,7 +76,25 @@ class BloodRequest(db.Model):
     upvotes = db.relationship('BloodRequestUpvote', back_populates='blood_request', lazy=True)
 
     comments = db.relationship('Comment', back_populates='blood_request', lazy=True)
-    
+    donors_assigned = db.Column(db.Integer, default=0)
+    smoker_preference = db.Column(db.String(20), default="Allow Smokers")
+
+    @property
+    def donors_needed(self):
+        """Returns the number of additional donors required"""
+        return max(0, self.amount_needed - self.donors_assigned)
+
+    @property
+    def is_fulfilled(self):
+        """Returns True if all required donors have been assigned"""
+        return self.donors_needed == 0
+
+    def assign_donor(self):
+        """Assign a donor and update the status"""
+        if self.donors_needed > 0:
+            self.donors_assigned += 1
+            if self.is_fulfilled:
+                self.status = "Fulfilled"
 
 
 class Admin(db.Model):  # Fix the typo here

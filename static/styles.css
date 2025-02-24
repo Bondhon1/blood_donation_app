@@ -496,17 +496,6 @@ button:hover {
 .active-tab {
     display: block;
 }
-/* Style for post user info */
-.post-user-info {
-    margin-left: 10px;
-}
-
-.post-profile-pic {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    margin-right: 10px;
-}
 
 /* Style for post user info */
 .post-user-info {
@@ -529,8 +518,8 @@ button:hover {
 }
 
 .post-img-box {
-    width: 75px;
-    height: 75px;
+    width: 170px;
+    height: 170px;
     position: relative;
     overflow: hidden;
     border-radius: 8px;
@@ -559,6 +548,12 @@ button:hover {
     border-radius: 10px;
     padding: 15px;
     background: #fff;
+}
+.post-body{
+    text-align: left;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 10px;
 }
 
 /* Post Header */

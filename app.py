@@ -424,6 +424,7 @@ def new_blood_request():
             amount_needed=float(form.amount_needed.data),
             hospital_name=form.hospital_name.data,
             urgency_status=form.urgency_status.data,
+            smoker_preference=form.smoker_preference.data,
             reason=form.reason.data,
             user_id=user_id,
             status="Open",
@@ -462,7 +463,11 @@ def load_past_requests():
     offset = int(request.args.get("offset", 0))
     limit = int(request.args.get("limit", 6))
 
-    requests = BloodRequest.query.filter_by(user_id=session['user_id']).order_by(BloodRequest.created_at.desc()).offset(offset).limit(limit).all()
+    requests = (BloodRequest.query
+                .filter_by(user_id=session['user_id'])
+                .order_by(BloodRequest.created_at.desc())
+                .offset(offset).limit(limit).all())
+
     has_more = BloodRequest.query.filter_by(user_id=session['user_id']).count() > offset + limit
 
     return jsonify({
@@ -473,16 +478,22 @@ def load_past_requests():
                 "username": r.user.username,
                 "profile_picture": r.user.profile_picture
             },
+            "patient_name": r.patient_name,  # ✅ Add patient's name
             "blood_group": r.blood_group,
             "hospital_name": r.hospital_name,
             "urgency_status": r.urgency_status,
             "reason": r.reason,
+            "amount_needed": r.amount_needed,  # ✅ Blood bags needed
+            "donors_needed": r.amount_needed,  # ✅ One donor per bag
             "created_at": r.created_at.strftime("%Y-%m-%d %H:%M"),
             "images": r.images.split(",") if r.images else [],
-            "upvotes": r.upvote_count  # ✅ Add this line
+            "upvotes": r.upvote_count
         } for r in requests],
         "has_more": has_more
     })
+
+
+
 
 
 @app.route('/upvote_request/<int:post_id>', methods=['POST'])

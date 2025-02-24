@@ -199,6 +199,16 @@
                                 </select>
                             </div>
 
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold">Smoker Preference</label>
+                                <select name="smoker_preference" class="form-select" required>  <!-- ✅ FIXED NAME -->
+                                    <option value="Allow Smokers">Allow Smokers to donate</option>
+                                    <option value="Avoid Smokers">Prefer avoiding smokers</option>
+                                    <option value="No smokers">No Smokers</option>
+                                </select>
+                            </div>
+                            
                             <div class="mb-3">
                                 <label class="fw-bold">Reason for Request</label>
                                 <textarea name="reason" class="form-control" rows="3" required></textarea>
@@ -662,21 +672,27 @@ function createPostHTML(request) {
                 </div>
             </div>
             <div class="post-body">
+                <p><strong>Patient Name:</strong> ${request.patient_name}</p>
                 <p><strong>Blood Group:</strong> ${request.blood_group}</p>
                 <p><strong>Hospital:</strong> ${request.hospital_name}</p>
                 <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
+                <p><strong>Blood Needed:</strong> ${request.amount_needed} bag${request.amount_needed > 1 ? 's' : ''} (${request.amount_needed} donor${request.amount_needed > 1 ? 's' : ''} needed)</p>
                 <p>${request.reason}</p>
                 ${imagesHTML}
             </div>
             <div class="post-footer">
-                <div class="status-bar ${request.donor_assigned ? 'donor-assigned' : ''}">
-                    ${request.donor_assigned ? '<span class="text-success">Donor Assigned</span>' : '<span class="text-danger">No Donor Yet</span>'}
+                <div class="status-bar ${request.status === 'Fulfilled' ? 'donor-assigned' : ''}">
+                    ${request.status === 'Fulfilled' ? 
+                        '<span class="text-success">All Donors Assigned</span>' :
+                        request.donors_assigned > 0 ? 
+                        `<span class="text-warning">${request.donors_assigned} out of ${request.amount_needed} Donors Assigned</span>` :
+                        '<span class="text-danger">No Donor Yet</span>'
+                    }
                 </div>
                 <div class="post-actions">
                     <button class="upvote-btn" data-id="${request.id}" onclick="upvotePost(${request.id})">
-                    <i class="fas fa-thumbs-up"></i> <span id="upvote-count-${request.id}">${request.upvotes || 0}</span>
-                </button>
-
+                        <i class="fas fa-thumbs-up"></i> <span id="upvote-count-${request.id}">${request.upvotes || 0}</span>
+                    </button>
                     <button class="comment-toggle-btn" onclick="toggleComments(${request.id})">
                         <i class="fas fa-comment"></i> Comments
                     </button>
@@ -692,6 +708,8 @@ function createPostHTML(request) {
         </div>
     `;
 }
+
+
 function upvotePost(postId) {
     fetch(`/upvote_request/${postId}`, { method: 'POST' })
         .then(response => {

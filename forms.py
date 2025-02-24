@@ -25,6 +25,7 @@ class BloodRequestForm(FlaskForm):
     amount_needed = FloatField("Amount Needed (in bags)", validators=[DataRequired()])  # ✅ Changed from IntegerField
     hospital_name = StringField("Hospital Name", validators=[DataRequired(), Length(min=2, max=255)])
     urgency_status = SelectField("Urgency Status", choices=[("Normal", "Normal"), ("Urgent", "Urgent"), ("Critical", "Critical")], validators=[DataRequired()])
+    smoker_preference = SelectField("Smoker Preference", choices=[("Allow Smokers", "Allow Smokers"), ("Avoid Smokers", "Avoid Smokers"), ("No smokers", "No smokers")], default="Allow Smokers", validators=[DataRequired()])
     reason = TextAreaField("Reason for Request", validators=[DataRequired(), Length(min=5, max=500)])
     images = MultipleFileField("Upload Supporting Documents (Optional)")  # ✅ Now supports multiple images
 class DonorApplicationForm(FlaskForm):
