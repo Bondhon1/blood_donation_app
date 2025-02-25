@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="sidebar bg-dark text-white p-3" style="width: 250px; height: 100vh; position: fixed;">
+    <h4 class="text-center">Admin Panel</h4>
+    <hr>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light w-100 mb-2">Dashboard</a>
+    <a href="{{ url_for('admin_add_admin_page') }}" class="btn btn-outline-light w-100 mb-2">Add Admin</a>
+    <a href="{{ url_for('manage_users') }}" class="btn btn-outline-light w-100 mb-2">Manage Users</a>
+    <a href="{{ url_for('manage_requests') }}" class="btn btn-outline-light w-100 mb-2">Manage Requests</a>
+    <a href="{{ url_for('manage_donors') }}" class="btn btn-outline-light w-100 mb-2">Manage Donors</a>
+    <a href="{{ url_for('admin_settings') }}" class="btn btn-outline-light w-100">Settings</a>
+</div>
+<div class="content p-4" style="margin-left: 260px; width: 100%;">
+    <h2>Manage Donors</h2>
+    <table class="table table-bordered mt-3">
+        <thead class="thead-dark">
+            <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Blood Group</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in donor_applications %}
+            <tr>
+                <td>{{ application.id }}</td>
+                <td>{{ application.user.username }}</td>
+                <td>{{ application.blood_group }}</td>
+                <td>{{ application.status }}</td>
+                <td>
+                    {% if application.status == 'Pending' %}
+                    <form action="{{ url_for('approve_donor', application_id=application.id) }}" method="POST">
+                        <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                    </form>
+                    {% else %}
+                    <span class="badge badge-success">Approved</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

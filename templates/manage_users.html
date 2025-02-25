@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="sidebar bg-dark text-white p-3" style="width: 250px; height: 100vh; position: fixed;">
+    <h4 class="text-center">Admin Panel</h4>
+    <hr>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light w-100 mb-2">Dashboard</a>
+    <a href="{{ url_for('admin_add_admin_page') }}" class="btn btn-outline-light w-100 mb-2">Add Admin</a>
+    <a href="{{ url_for('manage_users') }}" class="btn btn-outline-light w-100 mb-2">Manage Users</a>
+    <a href="{{ url_for('manage_requests') }}" class="btn btn-outline-light w-100 mb-2">Manage Requests</a>
+    <a href="{{ url_for('manage_donors') }}" class="btn btn-outline-light w-100 mb-2">Manage Donors</a>
+    <a href="{{ url_for('admin_settings') }}" class="btn btn-outline-light w-100">Settings</a>
+</div>
+<div class="content p-4" style="margin-left: 260px; width: 100%;">
+    <h2>Manage Users</h2>
+    <table class="table table-bordered mt-3">
+        <thead class="thead-dark">
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>
+                    <form action="{{ url_for('remove_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Are you sure?')">
+                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

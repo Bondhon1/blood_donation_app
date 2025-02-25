@@ -641,17 +641,146 @@ def admin_login():
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if 'admin_id' not in session:
-        
         flash("Please log in as an admin.", "danger")
         return redirect(url_for('admin_login'))
 
-    admin = Admin.query.filter_by(admin_id=session['admin_id']).first()  # ✅ Corrected
-
+    admin = Admin.query.filter_by(admin_id=session['admin_id']).first()
     if not admin:
         flash("Admin not found.", "danger")
         return redirect(url_for('admin_login'))
 
-    return render_template("admin_dashboard.html", admin=admin)
+    admins = Admin.query.all()  # Fetch all admins
+    users = User.query.all()  # Fetch all users
+    donor_applications = DonorApplication.query.all()  # Fetch all pending donor applications
+    blood_requests = BloodRequest.query.all()  # Fetch all blood requests
+
+    return render_template(
+        "admin_dashboard.html",
+        admin=admin,
+        admins=admins,
+        users=users,
+        donor_applications=donor_applications,
+        blood_requests=blood_requests
+    )
+@app.route('/admin/add_admin')
+def admin_add_admin_page():
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+    
+    return render_template('add_admin.html')
+
+@app.route('/add_admin', methods=['POST'])
+def add_admin():
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+
+    username = request.form['username']
+    email = request.form['email']
+    password = request.form['password']
+
+    if Admin.query.filter_by(admin_username=username).first():
+        flash("Username already exists!", "danger")
+        return redirect(url_for('admin_dashboard'))
+
+    new_admin = Admin(admin_username=username, admin_email=email, admin_password=password)
+    db.session.add(new_admin)
+    db.session.commit()
+
+    flash("New admin added successfully!", "success")
+    return redirect(url_for('admin_dashboard'))
+@app.route('/admin/manage-users')
+def manage_users():
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+    
+    users = User.query.all()
+    return render_template('manage_users.html', users=users)
+
+@app.route('/admin/manage-requests')
+def manage_requests():
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+    
+    blood_requests = BloodRequest.query.all()
+    return render_template('manage_requests.html', blood_requests=blood_requests)
+
+@app.route('/admin/manage-donors')
+def manage_donors():
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+    
+    donor_applications = DonorApplication.query.all()
+    return render_template('manage_donors.html', donor_applications=donor_applications)
+
+
+
+@app.route('/remove_user/<int:user_id>', methods=['POST'])
+def remove_user(user_id):
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+
+    user = User.query.get(user_id)
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+        flash("User removed successfully.", "success")
+    else:
+        flash("User not found.", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+@app.route('/approve_donor/<int:application_id>', methods=['POST'])
+def approve_donor(application_id):
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+
+    application = DonorApplication.query.get(application_id)
+    if application:
+        application.status = "Approved"
+        db.session.commit()
+        flash("Donor application approved.", "success")
+    else:
+        flash("Application not found.", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/reject_donor/<int:application_id>', methods=['POST'])
+def reject_donor(application_id):
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+
+    application = DonorApplication.query.get(application_id)
+    if application:
+        application.status = "Rejected"
+        db.session.commit()
+        flash("Donor application rejected.", "warning")
+    else:
+        flash("Application not found.", "danger")
+
+    return redirect(url_for('admin_dashboard'))
+@app.route('/remove_blood_request/<int:request_id>', methods=['POST'])
+def remove_blood_request(request_id):
+    if 'admin_id' not in session:
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for('admin_login'))
+
+    blood_request = BloodRequest.query.get(request_id)
+    if blood_request:
+        db.session.delete(blood_request)
+        db.session.commit()
+        flash("Blood request removed.", "success")
+    else:
+        flash("Request not found.", "danger")
+
+    return redirect(url_for('admin_dashboard'))
 
 
 

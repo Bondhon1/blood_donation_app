@@ -1,16 +1,51 @@
+/* 📌 Default Light Mode Variables */
+:root {
+    --bg-color: #f8f9fa;
+    --text-color: #333;
+    --card-bg: #ffffff;
+    --input-bg: #ffffff;
+    --input-border: #ccc;
+    --btn-bg: #d32f2f;
+    --btn-hover-bg: #b71c1c;
+    --nav-bg: #b71c1c;
+    --nav-text: white;
+    --dropdown-bg: white;
+    --dropdown-text: black;
+    --box-shadow: rgba(0, 0, 0, 0.1);
+}
+
+/* 🌙 Dark Mode Variables */
+.dark-mode {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: #1e1e1e;
+    --input-bg: #333;
+    --input-border: #555;
+    --btn-bg: #c62828;
+    --btn-hover-bg: #a62626;
+    --nav-bg: #a62626;
+    --nav-text: #fff;
+    --dropdown-bg: #222;
+    --dropdown-text: #e0e0e0;
+    --box-shadow: rgba(255, 255, 255, 0.1);
+}
 /* General styles */
 body {
     font-family: 'Arial', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f8f9fa;
-    color: #333;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background 0.3s ease, color 0.3s ease;
 }
 
 .card-body {
     width: 100% !important;  /* Ensures full width */
     max-width: 600px !important; /* Controls max width on larger screens */
     margin: auto; /* Centers it */
+    background: var(--card-bg);
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 @media (max-width: 768px) {
     .card-body {
@@ -21,8 +56,8 @@ body {
 
 /* Header */
 header {
-    background-color: #b71c1c;
-    color: white;
+    background-color: var(--nav-bg);
+    color: var(--nav-text);
     padding: 1rem;
     text-align: center;
     position: fixed;
@@ -31,6 +66,7 @@ header {
     left: 0;
     z-index: 1000;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background 0.3s ease;
 }
 
 /* Navigation */
@@ -41,7 +77,7 @@ nav {
 }
 
 nav a {
-    color: white;
+    color: var(--nav-text);
     margin: 0 15px;
     text-decoration: none;
     font-weight: bold;
@@ -80,9 +116,10 @@ form {
     max-width: 400px;  /* Default for mobile */
     margin: 20px auto;
     padding: 20px;
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Medium Screens (Tablets & Small Laptops) */
@@ -105,22 +142,27 @@ form {
     max-width: 400px;
     margin: 50px auto;
     padding: 20px;
-    background: white;
+    background: var(--card-bg);
     border-radius: 10px;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0px 4px 10px var(--box-shadow);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
-input {
+input, textarea {
+    background-color: var(--input-bg);
+    color: var(--text-color);
     width: 100%;
     padding: 10px;
     margin: 10px 0;
     border-radius: 5px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
+    transition: background 0.3s ease, border 0.3s ease;
 }
 input.form-control {
     border-radius: 5px;
     padding: 10px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
+    transition: background 0.3s ease, border 0.3s ease;
 }
 
 /* Button Animations */
@@ -135,21 +177,76 @@ input.form-control {
     box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2);
 }
 /* Ensure the form container takes full width */
+/* 🔹 Centering & Full Width */
 #new-request {
     display: flex;
     justify-content: center; /* Centers the form */
     width: 100%; /* Ensures it takes full width */
 }
 
-/* Default for Small Screens (Mobile) */
+/* 📱 Default for Small Screens (Mobile) */
 #new-request form {
-    width: 90%;  /* Responsive */
-    max-width: 400px; /* Default width */
+    width: 90%;  
+    max-width: 400px;
     margin: 20px auto;
     padding: 20px;
-    background: white;
+    background: var(--card-bg)!important; /* Light mode default */
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 🌙 Dark Mode - Form Adjustments */
+.dark-mode #new-request form {
+    background: var(--dark-card-bg);
+    box-shadow: 0 2px 10px var(--dark-box-shadow);
+    color: var(--text-color);
+}
+
+/* 🌙 Dark Mode - Fix Input Fields */
+.dark-mode #new-request input,
+.dark-mode #new-request textarea,
+.dark-mode #new-request select {
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--text-color);
+}
+
+.dark-mode #new-request input::placeholder,
+.dark-mode #new-request textarea::placeholder {
+    color: var(--muted-text);
+}
+
+/* 🔹 Tabs (Light Mode Default) */
+.nav-pills {
+    background-color: var(--card-bg) !important;
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.nav-pills .nav-link {
+    color: var(--text-color);
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.nav-pills .nav-link.active {
+    background-color: var(--btn-bg);
+    color: white;
+}
+
+/* 🌙 Dark Mode - Fix White Tabs */
+.dark-mode .nav-pills {
+    background-color: var(--card-bg) !important;
+    box-shadow: 0 2px 10px var(--box-shadow);
+}
+
+.dark-mode .nav-pills .nav-link {
+    color: var(--text-color);
+}
+
+.dark-mode .nav-pills .nav-link.active {
+    background-color: var(--btn-bg);
+    color: white;
 }
 
 /* Medium Screens (Tablets & Small Laptops) */
@@ -165,7 +262,12 @@ input.form-control {
         max-width: none; /* Expands for desktops */
     }
 }
-
+.shadow-sm{
+    background: var(--card-bg)!important;
+    color: var(--text-color);
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition: background 0.3s ease;
+}
 /* Toggle Password Button */
 #togglePassword {
     border: none;
@@ -175,7 +277,7 @@ input.form-control {
 button {
     width: 100%;
     padding: 10px;
-    background-color: #d32f2f;
+    background-color: var(--btn-bg);
     color: white;
     border: none;
     border-radius: 5px;
@@ -185,7 +287,7 @@ button {
 }
 
 button:hover {
-    background-color: #b71c1c;
+    background-color: var(--btn-hover-bg);
 }
 /* Navbar */
 .navbar {
@@ -208,12 +310,13 @@ button:hover {
     position: absolute;
     top: 40px;
     left: 0;
-    color: black;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
     width: 200px;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px var(--box-shadow);
     padding: 10px;
+    transition: background 0.3s ease, border 0.3s ease;
 }
 
 /* Dropdown Popups */
@@ -223,15 +326,19 @@ button:hover {
     position: absolute;
     top: 50px;
     right: 10px;
-    background: white;
+    background: var(--dropdown-bg);
     width: 200px;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
     padding: 10px;
     border-radius: 5px;
     z-index: 1050; /* Ensures it stays above buttons */
     pointer-events: auto; /* Allows clicking */
+    color: var(--dropdown-text);
+    transition: background 0.3s ease, color 0.3s ease;
 }
-
+.dropdown-popup.show {
+    display: block;
+}
 /* Fix overlapping issue by pushing popups downward on mobile */
 @media (max-width: 991px) {
     .dropdown-popup {
@@ -253,7 +360,23 @@ button:hover {
 .dropdown-popup a:hover {
     background: #ddd;
 }
+/* 🌙 Fix Dropdown Text & Hover in Dark Mode */
+.dark-mode .dropdown-popup {
+    background: var(--dropdown-bg);
+    color: var(--dropdown-text);
+}
 
+/* 🔹 Ensure dropdown links are readable */
+.dark-mode .dropdown-popup a {
+    color: var(--dropdown-text);  
+    transition: color 0.3s ease, background 0.3s ease;
+}
+
+/* 🔹 Fix Hover Issue */
+.dark-mode .dropdown-popup a:hover {
+    background: rgba(255, 255, 255, 0.1); /* Subtle highlight */
+    color: #fff !important; /* Ensures text stays visible */
+}
 /* Animations */
 .btn:hover {
     transform: scale(1.05);
@@ -289,6 +412,7 @@ button:hover {
     display: flex;
     flex-direction: column;
     align-items: center;
+    color: var(--text-color);
 }
 
 /* Profile Picture */
@@ -307,7 +431,7 @@ button:hover {
 .profile-container h3 {
     margin-top: 10px;
     font-weight: bold;
-    color: #333;
+    color: var(--text-color);
 }
 
 /* Profile Picture Upload Button */
@@ -334,6 +458,8 @@ button:hover {
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
     position: relative;
+    background: var(--card-bg);
+    transition: background 0.3s ease;
 }
 
 .cover-image {
@@ -363,7 +489,14 @@ button:hover {
         top: 90px; /* Position near profile pic */
     }
 }
-
+.shadow-lg{
+    border-radius: 10px;
+    padding: 15px;
+    background: var(--card-bg);
+    box-shadow: 0 2px 10px var(--box-shadow);    
+    color: var(--text-color);
+    transition : background 0.3s ease, box-shadow 0.3s ease;
+}
 /* Increase form width on larger screens */
 @media (min-width: 992px) {
     .card-body {
@@ -492,6 +625,9 @@ button:hover {
 /* Tabs */
 .profile-tab {
     display: none;
+    background: var(--card-bg);
+    color: var(--text-color);
+    border: 0px solid var(--input-border);
 }
 .active-tab {
     display: block;
@@ -537,7 +673,7 @@ button:hover {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(62, 58, 58, 0.6);
     color: white;
     font-weight: bold;
     font-size: 14px;
@@ -547,7 +683,9 @@ button:hover {
 .post-card {
     border-radius: 10px;
     padding: 15px;
-    background: #fff;
+    background: var(--card-bg);
+    box-shadow: 0 2px 10px var(--box-shadow);
+    transition : background 0.3s ease, box-shadow 0.3s ease;
 }
 .post-body{
     text-align: left;
@@ -587,7 +725,7 @@ button:hover {
 }
 
 .upvote-btn, .comment-toggle-btn {
-    color: black;
+    color: var(--text-color);
     border: 2px solid #ccc;
     background: none;
     cursor: pointer;
@@ -595,7 +733,9 @@ button:hover {
     display: flex;
     align-items: center;
 }
-
+.comment-toggle-btn:hover{
+    background-color: red;
+}
 .upvote-btn i, .comment-toggle-btn i {
     margin-right: 5px;
 }
@@ -603,9 +743,13 @@ button:hover {
     color: blue;
     font-weight: bold;
 }
-
+.dark-mode .post-header .text-muted {
+    color: var(--muted-text) !important;  /* Ensure proper contrast */
+    opacity: 0.8;
+}
 /* Comments */
 .comments-section {
+    color: var(--text-color);
     text-align: left;
     margin-top: 10px;
     border-top: 1px solid #ddd;
@@ -613,6 +757,7 @@ button:hover {
 }
 
 .comment-input {
+    color: var(--text-color);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -622,15 +767,15 @@ button:hover {
 .comment-input input {
     flex-grow: 1;  /* Expands to fill available space */
     padding: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--input-border);
     border-radius: 5px;
     font-size: 14px;
 }
 
 .comment-input button {
     padding: 8px 12px;
-    background-color: #e74c3c; /* Red theme */
-    color: white;
+    background: #c0392b; /* Red theme */
+    color: var(--text-color);
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -639,7 +784,7 @@ button:hover {
 }
 
 .comment-input button:hover {
-    background-color: #c0392b;
+    background-color: red;
 }
 
 
@@ -747,24 +892,26 @@ button:hover {
 /* Donor Section Styling */
 .donor-tab {
     padding: 20px;
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 10px var(--box-shadow);
     margin-top: 20px;
+    transition: background 0.3s ease;
 }
 
 .donor-profile-card {
     padding: 15px;
-    background: #f9f9f9;
+    color: var(--text-color);
+    background: var(--card-bg);
     border-radius: 8px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 8px var(--box-shadow);
 }
 
 .donor-form {
     padding: 15px;
-    background: #f9f9f9;
+    background: var(--card-bg);
     border-radius: 8px;
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 0 8px var(--box-shadow);
 }
 
 .editable-field {
@@ -776,4 +923,25 @@ button:hover {
     border: 1px solid #ccc;
     padding: 8px;
     border-radius: 4px;
+}
+
+/* Mobile Responsiveness Fix */
+@media (max-width: 768px) {
+    .btn-outline-light, .btn-light {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+}
+/* 🔹 Animations */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }

@@ -65,3 +65,47 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 });
+document.addEventListener("DOMContentLoaded", function () {
+    let darkModeToggle = document.getElementById("darkModeToggle");
+    let body = document.body;
+
+    // Check if dark mode was previously enabled
+    if (localStorage.getItem("darkMode") === "enabled") {
+        body.classList.add("dark-mode");
+        darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+    }
+
+    // Toggle dark mode on button click
+    darkModeToggle.addEventListener("click", function () {
+        body.classList.toggle("dark-mode");
+
+        // Update button icon
+        if (body.classList.contains("dark-mode")) {
+            darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            localStorage.setItem("darkMode", "enabled");
+        } else {
+            darkModeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            localStorage.setItem("darkMode", "disabled");
+        }
+    });
+});
+document.addEventListener("DOMContentLoaded", function () {
+    let scrollBtn = document.getElementById("scrollToTop");
+
+    // Show scroll-to-top button when scrolling
+    window.addEventListener("scroll", function () {
+        if (window.pageYOffset > 100) {
+            scrollBtn.classList.add("show");
+        } else {
+            scrollBtn.classList.remove("show");
+        }
+    });
+
+    // Scroll to top on button click
+    scrollBtn.addEventListener("click", function () {
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+    });
+});
