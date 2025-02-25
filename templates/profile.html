@@ -128,7 +128,7 @@
 
             
             <div id="requests" class="profile-tab">
-                <h4 class="mb-3">Your Past Blood Requests</h4>
+                
             
                 <div id="request-feed">
                     <!-- Blood request posts will be loaded here dynamically -->
@@ -140,7 +140,7 @@
 
             <!-- New Request Tab -->
             <div id="new-request" class="profile-tab container">
-                        <h4 class="mb-3">Post a New Blood Request</h4>
+                        
 
                         <form action="{{ url_for('new_blood_request') }}" method="POST" enctype="multipart/form-data">
                             {{ form.hidden_tag() }}  <!-- Flask-WTF CSRF token -->
@@ -229,7 +229,7 @@
             <!-- Inside the Become a Donor Tab -->
             <div id="donor" class="profile-tab">
 
-                <h4>Become a Donor</h4>
+                
             
                 {% if donor %}
                     <div class="donor-profile-card">
@@ -934,6 +934,17 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
+    // Automatically remove flash messages after 5 seconds
+    setTimeout(function() {
+        let alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            // Only remove alerts that are NOT inside the notification popup
+            if (!alert.closest('#notifPopup')) {
+                let bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        });
+    }, 5000);
 
 
 </script>
