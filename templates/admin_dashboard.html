@@ -1,22 +1,29 @@
 {% extends "base.html" %}
 {% block title %}Admin Dashboard{% endblock %}
 {% block content %}
+
+
+
+
 <div class="d-flex">
-    <!-- Sidebar -->
-    <div class="sidebar bg-dark text-white p-3" style="width: 250px; height: 100vh; position: fixed;">
-        <h4 class="text-center">Admin Panel</h4>
-        <hr>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light w-100 mb-2">Dashboard</a>
-        <a href="{{ url_for('admin_add_admin_page') }}" class="btn btn-outline-light w-100 mb-2">Add Admin</a>
-        <a href="{{ url_for('manage_users') }}" class="btn btn-outline-light w-100 mb-2">Manage Users</a>
-        <a href="{{ url_for('manage_requests') }}" class="btn btn-outline-light w-100 mb-2">Manage Requests</a>
-        <a href="{{ url_for('manage_donors') }}" class="btn btn-outline-light w-100 mb-2">Manage Donors</a>
-        
-    </div>
+    
 
     <!-- Main Content -->
-    <!-- Main Content -->
-    <div class="content p-4" style="margin-left: 260px; width: 100%;">
+    <div class="content">
+        <!-- Menu Button (☰) -->
+<button id="menu-btn" class="menu-btn">☰</button>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <h4 class="text-center">Admin Panel</h4>
+    <hr>
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_add_admin_page') }}">Add Admin</a>
+    <a href="{{ url_for('manage_users') }}">Manage Users</a>
+    <a href="{{ url_for('manage_requests') }}">Manage Requests</a>
+    <a href="{{ url_for('manage_donors') }}">Manage Donors</a>
+</div>
+
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -27,10 +34,12 @@
             {% endfor %}
         {% endif %}
         {% endwith %}
+
         <h2>Welcome, {{ admin.admin_username }}</h2>
+
         <div class="row mt-4">
             <div class="col-md-3">
-                <div class="card text-white bg-primary">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Admins</h5>
                         <p class="card-text">{{ admins|length }}</p>
@@ -38,7 +47,7 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-white bg-success">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Users</h5>
                         <p class="card-text">{{ users|length }}</p>
@@ -46,7 +55,7 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-white bg-warning">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Pending Donors</h5>
                         <p class="card-text">{{ donor_applications|length }}</p>
@@ -54,7 +63,7 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="card text-white bg-danger">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Blood Requests</h5>
                         <p class="card-text">{{ blood_requests|length }}</p>
@@ -63,8 +72,10 @@
             </div>
         </div>
     </div>
-
 </div>
+
+
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
 
 
 {% endblock %}

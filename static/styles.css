@@ -292,6 +292,12 @@ button:hover {
 /* Navbar */
 .navbar {
     padding: 10px 20px;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 60px; /* Adjusted height */
+    z-index: 999; /* Ensures navbar is on top of everything */
 }
 .navbar .btn {
     font-size: 1.1rem;
@@ -944,4 +950,191 @@ button:hover {
     to {
         opacity: 1;
     }
+}
+/* 🏠 Sidebar Styling */
+.sidebar {
+    width: 250px;
+    height: calc(100vh - 60px); /* Adjusted height to avoid overlapping navbar */
+    position: fixed;
+    top: 60px; /* 👈 Moves sidebar below the navbar */
+    left: 0;
+    background-color: var(--nav-bg);
+    color: var(--nav-text);
+    transition: all 0.3s ease-in-out;
+    padding-top: 20px;
+    z-index: 998; /* Lower than navbar */
+}
+
+
+.sidebar a {
+    color: var(--nav-text);
+    text-decoration: none;
+    display: block;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.sidebar a:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 📜 Main Content */
+.content {
+    margin-left: 250px;
+    padding: 20px;
+    width: calc(100% - 250px);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: margin-left 0.3s ease-in-out;
+}
+/* 📱 Mobile Version */
+@media (max-width: 768px) {
+    /* 🛠 Sidebar Fix: Show Above Content */
+    .sidebar {
+        width: 250px;
+        left: -260px;
+        position: fixed;
+        top: 140px; /* 👈 Moves sidebar below navbar */
+        height: calc(100vh - 140px);
+    }
+    .sidebar.active {
+        left: 0;
+    }
+
+    /* 🏠 Main Content Fix */
+    .content {
+        margin-left: 0;
+        width: 100%;
+        position: relative;
+        z-index: 1; /* Ensures content is below sidebar */
+    }
+
+    /* 📌 Navbar Fix */
+    .navbar {
+        height: 140px;
+        width: 100%;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1050;
+    }
+}
+
+/* 🌙 Dark Mode Support */
+.dark-mode .sidebar {
+    background-color: var(--nav-bg);
+    color: var(--nav-text);
+}
+
+.dark-mode .sidebar a {
+    color: var(--nav-text);
+}
+
+.dark-mode .content {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+}
+.card-body{
+    color: var(--text-color)!important;
+}
+
+/* 📌 Menu Button */
+/* 📌 Menu Button */
+.menu-btn {
+    position: fixed; /* Ensure it stays fixed */
+    top: 55px; /* Just below navbar */
+    left: 10px; /* Keep it outside sidebar */
+    width: 40px;
+    height: 40px;
+    background: var(--nav-bg);
+    color: var(--nav-text);
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.3s ease-in-out;
+     /* Ensure it stays above sidebar */
+    display: block; /* Ensure it's visible */
+}
+
+/* 📌 Sidebar */
+.sidebar {
+    position: fixed;
+    left: -220px; /* Start hidden */
+    
+    width: 220px;
+    height: 100%;
+    background: var(--nav-bg);
+    transition: all 0.3s ease-in-out;
+    z-index: 999; /* Below the button */
+}
+
+/* 📌 When sidebar is active */
+.sidebar.active {
+    left: 0;
+}
+
+/* 📌 When sidebar is active, adjust button position */
+.sidebar.active + .menu-btn {
+    left: 230px; /* Move button with sidebar */
+}
+
+
+
+/* 📌 Responsive Fixes */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px; /* Slightly smaller */
+    }
+    .menu-btn {
+        top: 135px !important; /* Adjusted position */
+        left: 10px;
+        display: block !important; /* Show the button */
+    }
+    .sidebar.active + .menu-btn {
+        left: 210px;
+    }
+}
+.content {
+    margin-left: 0; /* Remove extra left margin */
+    width: 100%; /* Ensure full width */
+    padding: 20px; /* Add padding instead of margin */
+}
+/* 📌 Table Styling (Light Mode) */
+/* 📌 Table Styling (Light Mode) */
+.table {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--input-border) !important;
+}
+
+.table th, .table td {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--input-border) !important;
+}
+
+/* 📌 Table Header */
+.table thead th {
+    background-color: var(--btn-bg) !important;
+    color: var(--nav-text) !important;
+}
+
+/* 🌙 Dark Mode Support */
+.dark-mode .table,
+.dark-mode .table th,
+.dark-mode .table td {
+    background-color: var(--card-bg) !important;
+    color: var(--text-color) !important;
+    border-color: var(--input-border) !important;
+}
+
+.dark-mode .table thead th {
+    background-color: var(--btn-bg) !important;
+    color: var(--nav-text) !important;
+}
+
+/* Remove Bootstrap’s default table-dark styles */
+.table-dark {
+    background-color: unset !important;
+    color: unset !important;
 }

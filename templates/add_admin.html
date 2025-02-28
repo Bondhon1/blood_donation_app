@@ -1,28 +1,36 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="sidebar bg-dark text-white p-3" style="width: 250px; height: 100vh; position: fixed;">
-    <h4 class="text-center">Admin Panel</h4>
-    <hr>
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light w-100 mb-2">Dashboard</a>
-    <a href="{{ url_for('admin_add_admin_page') }}" class="btn btn-outline-light w-100 mb-2">Add Admin</a>
-    <a href="{{ url_for('manage_users') }}" class="btn btn-outline-light w-100 mb-2">Manage Users</a>
-    <a href="{{ url_for('manage_requests') }}" class="btn btn-outline-light w-100 mb-2">Manage Requests</a>
-    <a href="{{ url_for('manage_donors') }}" class="btn btn-outline-light w-100 mb-2">Manage Donors</a>
-    <a href="{{ url_for('admin_settings') }}" class="btn btn-outline-light w-100">Settings</a>
-</div>
-<div class="content p-4" style="margin-left: 260px; width: 100%;">
+
+<div class="content p-4" style="margin-left: 10px; width: 100%;">
+    <div class="content">
+        <!-- Menu Button (☰) -->
+        <button id="menu-btn" class="menu-btn">☰</button>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h4 class="text-center">Admin Panel</h4>
+            <hr>
+            <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('admin_add_admin_page') }}">Add Admin</a>
+            <a href="{{ url_for('manage_users') }}">Manage Users</a>
+            <a href="{{ url_for('manage_requests') }}">Manage Requests</a>
+            <a href="{{ url_for('manage_donors') }}">Manage Donors</a>
+        </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
     
     <h2>Add New Admin</h2>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
+   
     <form action="{{ url_for('add_admin') }}" method="POST" onsubmit="return validateForm()">
         <div class="form-group">
             <label>Username:</label>
@@ -98,4 +106,5 @@ function validateForm() {
     return valid;
 }
 </script>
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
 {% endblock %}
