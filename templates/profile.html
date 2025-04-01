@@ -662,6 +662,19 @@ function createPostHTML(request) {
 
     return `
         <div class="card shadow-sm post-card mb-3" data-id="${request.id}" data-images='${JSON.stringify(request.images)}'>
+            <!-- Options Button (3-dots) -->
+            <div class="post-options">
+                <button class="options-btn" onclick="toggleOptionsMenu(${request.id})">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+
+                <!-- Options Dropdown -->
+                <div class="options-menu" id="options-menu-${request.id}">
+                    <button onclick="editPost(${request.id})"><i class="fas fa-edit"></i> Edit</button>
+                    <button onclick="deletePost(${request.id})"><i class="fas fa-trash"></i> Delete</button>
+                    <button onclick="markDonorFound(${request.id})"><i class="fas fa-check"></i> Donor Found</button>
+                </div>
+            </div>
             <div class="post-header d-flex align-items-center">
                 <a href="/profile/${request.user.username}" class="fw-bold">
                     <img src="/static/profile_pics/${request.user.profile_picture}" class="post-profile-pic">
@@ -707,6 +720,141 @@ function createPostHTML(request) {
             </div>
         </div>
     `;
+}
+// Function to toggle options menu
+function toggleOptionsMenu(postId) {
+    const menu = document.getElementById(`options-menu-${postId}`);
+    
+    // Hide all other menus
+    document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
+
+    // Toggle current menu
+    if (menu.style.display === 'block') {
+        menu.style.display = 'none';
+    } else {
+        menu.style.display = 'block';
+    }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.post-options')) {
+        document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
+    }
+});
+// Edit post function
+function editPost(postId) {
+    // Fetch current post details
+    fetch(`/get_post/${postId}`)
+        .then(response => response.json())
+        .then(post => {
+            const editForm = `
+                <div id="editModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close" onclick="closeEditModal()">&times;</span>
+                        <h3>Edit Blood Request</h3>
+                        <label>Patient Name:</label>
+                        <input type="text" id="editPatientName" value="${post.patient_name}">
+                        
+                        <label>Blood Group:</label>
+                        <select id="editBloodGroup">
+                            <option ${post.blood_group === 'A+' ? 'selected' : ''}>A+</option>
+                            <option ${post.blood_group === 'A-' ? 'selected' : ''}>A-</option>
+                            <option ${post.blood_group === 'B+' ? 'selected' : ''}>B+</option>
+                            <option ${post.blood_group === 'B-' ? 'selected' : ''}>B-</option>
+                            <option ${post.blood_group === 'O+' ? 'selected' : ''}>O+</option>
+                            <option ${post.blood_group === 'O-' ? 'selected' : ''}>O-</option>
+                            <option ${post.blood_group === 'AB+' ? 'selected' : ''}>AB+</option>
+                            <option ${post.blood_group === 'AB-' ? 'selected' : ''}>AB-</option>
+                        </select>
+
+                        <label>Number of Blood Bags:</label>
+                        <input type="number" id="editAmountNeeded" value="${post.amount_needed}" min="1">
+                        
+                        <label>Hospital Name:</label>
+                        <input type="text" id="editHospitalName" value="${post.hospital_name}">
+                        
+                        <label>Required Date & Time:</label>
+                        <input type="datetime-local" id="editRequiredDate" value="${post.required_date}">
+                        
+                        <label>Urgency Status:</label>
+                        <select id="editUrgencyStatus">
+                            <option ${post.urgency_status === 'Critical' ? 'selected' : ''}>Critical</option>
+                            <option ${post.urgency_status === 'Urgent' ? 'selected' : ''}>Urgent</option>
+                            <option ${post.urgency_status === 'Normal' ? 'selected' : ''}>Normal</option>
+                        </select>
+                        
+                        <label>Reason for Request:</label>
+                        <textarea id="editReason">${post.reason}</textarea>
+
+                        <label>Upload New Images:</label>
+                        <input type="file" id="editImages" multiple accept="image/*">
+
+                        <button onclick="savePostEdit(${postId})">Save Changes</button>
+                        <button onclick="closeEditModal()">Cancel</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML("beforeend", editForm);
+            document.getElementById("editModal").style.display = "block";
+        });
+}
+
+// Function to close the modal
+function closeEditModal() {
+    document.getElementById("editModal").remove();
+}
+
+// Function to send updated data
+function savePostEdit(postId) {
+    const updatedData = new FormData();
+    updatedData.append("patient_name", document.getElementById("editPatientName").value);
+    updatedData.append("blood_group", document.getElementById("editBloodGroup").value);
+    updatedData.append("amount_needed", document.getElementById("editAmountNeeded").value);
+    updatedData.append("hospital_name", document.getElementById("editHospitalName").value);
+    updatedData.append("required_date", document.getElementById("editRequiredDate").value);
+    updatedData.append("urgency_status", document.getElementById("editUrgencyStatus").value);
+    updatedData.append("reason", document.getElementById("editReason").value);
+
+    // Append selected images
+    const images = document.getElementById("editImages").files;
+    for (let i = 0; i < images.length; i++) {
+        updatedData.append("images", images[i]);
+    }
+
+    fetch(`/edit_post/${postId}`, {
+        method: "POST",
+        body: updatedData
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        location.reload(); // Refresh page
+    });
+}
+
+
+// Delete post function
+function deletePost(postId) {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+
+    fetch(`/delete_post/${postId}`, { method: "DELETE" })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        location.reload();
+    });
+}
+
+// Mark Donor Found function
+function markDonorFound(postId) {
+    fetch(`/mark_donor_found/${postId}`, { method: "POST" })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+        location.reload();
+    });
 }
 
 

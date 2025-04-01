@@ -73,9 +73,20 @@ class BloodRequest(db.Model):
     status = db.Column(db.String(20), default="Open")  # New status field
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     upvote_count = db.Column(db.Integer, default=0)  # ✅ New column to store upvotes
-    upvotes = db.relationship('BloodRequestUpvote', back_populates='blood_request', lazy=True)
+    upvotes = db.relationship(
+        'BloodRequestUpvote',
+        back_populates='blood_request',
+        lazy=True,
+        cascade="all, delete"
+    )
 
-    comments = db.relationship('Comment', back_populates='blood_request', lazy=True)
+    comments = db.relationship(
+        'Comment',
+        back_populates='blood_request',
+        lazy=True,
+        cascade="all, delete"
+    )
+
     donors_assigned = db.Column(db.Integer, default=0)
     smoker_preference = db.Column(db.String(20), default="Allow Smokers")
 

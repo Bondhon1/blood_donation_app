@@ -1,24 +1,43 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="sidebar bg-dark text-white p-3" style="width: 250px; height: 100vh; position: fixed;">
+
+<div class="content p-4" style="margin-left: 10px; width: 100%;">
+    <div class="content">
+        <!-- Menu Button (☰) -->
+<button id="menu-btn" class="menu-btn">☰</button>
+
+<!-- Sidebar -->
+<div class="sidebar">
     <h4 class="text-center">Admin Panel</h4>
     <hr>
-    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light w-100 mb-2">Dashboard</a>
-    <a href="{{ url_for('admin_add_admin_page') }}" class="btn btn-outline-light w-100 mb-2">Add Admin</a>
-    <a href="{{ url_for('manage_users') }}" class="btn btn-outline-light w-100 mb-2">Manage Users</a>
-    <a href="{{ url_for('manage_requests') }}" class="btn btn-outline-light w-100 mb-2">Manage Requests</a>
-    <a href="{{ url_for('manage_donors') }}" class="btn btn-outline-light w-100 mb-2">Manage Donors</a>
-    <a href="{{ url_for('admin_settings') }}" class="btn btn-outline-light w-100">Settings</a>
+    <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('admin_add_admin_page') }}">Add Admin</a>
+    <a href="{{ url_for('manage_users') }}">Manage Users</a>
+    <a href="{{ url_for('manage_requests') }}">Manage Requests</a>
+    <a href="{{ url_for('manage_donors') }}">Manage Donors</a>
 </div>
-<div class="content p-4" style="margin-left: 260px; width: 100%;">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
     <h2>Manage Blood Requests</h2>
-    <table class="table table-bordered mt-3">
+    <table class="table table-bordered table-striped mt-3">
         <thead class="thead-dark">
             <tr>
                 <th>ID</th>
                 <th>User</th>
                 <th>Blood Group</th>
+                <th>Hospital</th>
+                <th>Donors Assigned</th>
+                <th>Created At</th>
                 <th>Status</th>
             </tr>
         </thead>
@@ -28,10 +47,14 @@
                 <td>{{ request.id }}</td>
                 <td>{{ request.user.username }}</td>
                 <td>{{ request.blood_group }}</td>
+                <td>{{ request.hospital_name }}</td>
+                <td>{{ request.donors_assigned }}</td>
+                <td>{{ request.created_at }}</td>
                 <td>{{ request.status }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
 {% endblock %}

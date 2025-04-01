@@ -493,6 +493,85 @@ def load_past_requests():
     })
 
 
+@app.route('/edit_post/<int:post_id>', methods=['POST'])
+def edit_post(post_id):
+    post = BloodRequest.query.get_or_404(post_id)
+
+    if session.get("user_id") != post.user_id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    patient_name = request.form.get("patient_name")
+    blood_group = request.form.get("blood_group")
+    amount_needed = request.form.get("amount_needed")
+    hospital_name = request.form.get("hospital_name")
+    required_date = request.form.get("required_date")
+    urgency_status = request.form.get("urgency_status")
+    reason = request.form.get("reason")
+
+    # Update text fields
+    post.patient_name = patient_name or post.patient_name
+    post.blood_group = blood_group or post.blood_group
+    post.amount_needed = float(amount_needed) if amount_needed else post.amount_needed
+    post.hospital_name = hospital_name or post.hospital_name
+    post.required_date = datetime.strptime(required_date, "%Y-%m-%dT%H:%M") if required_date else post.required_date
+    post.urgency_status = urgency_status or post.urgency_status
+    post.reason = reason or post.reason
+
+    # Handle new image uploads
+    image_filenames = post.images.split(",") if post.images else []
+
+    if "images" in request.files:
+        images = request.files.getlist("images")
+        for image in images:
+            if image and image.filename:
+                ext = os.path.splitext(image.filename)[1]
+                unique_filename = f"{uuid.uuid4().hex}{ext}"
+                image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
+                image.save(image_path)
+                image_filenames.append(unique_filename)
+
+    post.images = ",".join(image_filenames)
+
+    db.session.commit()
+    return jsonify({"message": "Post updated successfully"})
+@app.route('/get_post/<int:post_id>')
+def get_post(post_id):
+    post = BloodRequest.query.get_or_404(post_id)
+    
+    return jsonify({
+        "id": post.id,
+        "patient_name": post.patient_name,
+        "blood_group": post.blood_group,
+        "amount_needed": post.amount_needed,
+        "hospital_name": post.hospital_name,
+        "required_date": post.required_date.strftime("%Y-%m-%dT%H:%M") if post.required_date else "",
+        "urgency_status": post.urgency_status,
+        "reason": post.reason,
+        "images": post.images.split(",") if post.images else []
+    })
+
+
+@app.route('/delete_post/<int:post_id>', methods=['DELETE'])
+def delete_post(post_id):
+    post = BloodRequest.query.get_or_404(post_id)
+
+    if session.get("user_id") != post.user_id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    db.session.delete(post)
+    db.session.commit()
+    return jsonify({"message": "Post deleted successfully"})
+
+@app.route('/mark_donor_found/<int:post_id>', methods=['POST'])
+def mark_donor_found(post_id):
+    post = BloodRequest.query.get_or_404(post_id)
+
+    if session.get("user_id") != post.user_id:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    post.status = "Fulfilled"
+    db.session.commit()
+    return jsonify({"message": "Post marked as Fulfilled"})
 
 
 
