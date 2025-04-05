@@ -216,7 +216,9 @@
                             </div>
                             <div class="mb-3">
                                 <label class="fw-bold">Upload Supporting Images (optional, max 10)</label>
-                                <input type="file" name="images" class="form-control" accept="image/*" multiple>
+                                <input type="file" name="images" id="imageUpload" class="form-control" accept="image/*" multiple>
+                                <div id="imagePreviews" class="d-flex flex-wrap gap-2 mt-2"></div>
+
                                 <small class="text-muted">You can upload up to 10 images.</small>
                             </div>
                             <button type="submit" id="submitBtn" class="btn btn-danger w-100" disabled>
@@ -742,53 +744,66 @@ document.addEventListener('click', function(event) {
         document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
     }
 });
-// Edit post function
 function editPost(postId) {
-    // Fetch current post details
+    
     fetch(`/get_post/${postId}`)
         .then(response => response.json())
         .then(post => {
+            let imagesHTML = post.images.map(img => `
+                <div class="edit-img-box">
+                    <img src="/static/profile_pics/${img}" class="edit-post-img">
+                    <button class="remove-img-btn" onclick="removeImage('${img}')">X</button>
+                </div>
+            `).join("");
+
             const editForm = `
                 <div id="editModal" class="modal">
                     <div class="modal-content">
                         <span class="close" onclick="closeEditModal()">&times;</span>
                         <h3>Edit Blood Request</h3>
                         <label>Patient Name:</label>
-                        <input type="text" id="editPatientName" value="${post.patient_name}">
+                        <input type="text" id="editPatientName" value="${post.patient_name || ''}">
                         
                         <label>Blood Group:</label>
                         <select id="editBloodGroup">
-                            <option ${post.blood_group === 'A+' ? 'selected' : ''}>A+</option>
-                            <option ${post.blood_group === 'A-' ? 'selected' : ''}>A-</option>
-                            <option ${post.blood_group === 'B+' ? 'selected' : ''}>B+</option>
-                            <option ${post.blood_group === 'B-' ? 'selected' : ''}>B-</option>
-                            <option ${post.blood_group === 'O+' ? 'selected' : ''}>O+</option>
-                            <option ${post.blood_group === 'O-' ? 'selected' : ''}>O-</option>
-                            <option ${post.blood_group === 'AB+' ? 'selected' : ''}>AB+</option>
-                            <option ${post.blood_group === 'AB-' ? 'selected' : ''}>AB-</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
                         </select>
 
                         <label>Number of Blood Bags:</label>
-                        <input type="number" id="editAmountNeeded" value="${post.amount_needed}" min="1">
+                        <input type="number" id="editAmountNeeded" value="${post.amount_needed || 1}" min="1">
                         
                         <label>Hospital Name:</label>
-                        <input type="text" id="editHospitalName" value="${post.hospital_name}">
+                        <input type="text" id="editHospitalName" value="${post.hospital_name || ''}">
                         
                         <label>Required Date & Time:</label>
-                        <input type="datetime-local" id="editRequiredDate" value="${post.required_date}">
+                        <input type="datetime-local" id="editRequiredDate" value="${post.required_date || ''}">
                         
                         <label>Urgency Status:</label>
                         <select id="editUrgencyStatus">
-                            <option ${post.urgency_status === 'Critical' ? 'selected' : ''}>Critical</option>
-                            <option ${post.urgency_status === 'Urgent' ? 'selected' : ''}>Urgent</option>
-                            <option ${post.urgency_status === 'Normal' ? 'selected' : ''}>Normal</option>
+                            <option value="Critical">Critical</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="Normal">Normal</option>
                         </select>
                         
                         <label>Reason for Request:</label>
-                        <textarea id="editReason">${post.reason}</textarea>
+                        <textarea id="editReason">${post.reason || ''}</textarea>
 
-                        <label>Upload New Images:</label>
-                        <input type="file" id="editImages" multiple accept="image/*">
+                        <label>Uploaded Images:</label>
+                        <div id="existingImages">${imagesHTML}</div>
+
+                        <label for="editImages" class="custom-file-upload">
+                        📷 Upload Images
+                        </label>
+                        <input type="file" id="editImages" name="images" multiple accept="image/*" style="display: none;">
+                        <div class="preview-container" id="editImagePreviews"></div>
+
 
                         <button onclick="savePostEdit(${postId})">Save Changes</button>
                         <button onclick="closeEditModal()">Cancel</button>
@@ -798,15 +813,77 @@ function editPost(postId) {
 
             document.body.insertAdjacentHTML("beforeend", editForm);
             document.getElementById("editModal").style.display = "block";
+            setupImagePreview();
+            removedImages = []; // Reset when modal opens
+
+            // ✅ Set selected values explicitly after rendering
+            document.getElementById("editBloodGroup").value = post.blood_group || '';
+            document.getElementById("editUrgencyStatus").value = post.urgency_status || '';
         });
+        function setupImagePreview() {
+            const editImageInput = document.getElementById("editImages");
+            const previewContainer = document.getElementById("editImagePreviews");
+
+            if (!editImageInput || !previewContainer) return;
+
+            let selectedFiles = [];
+
+            editImageInput.addEventListener("change", function () {
+                const newFiles = Array.from(editImageInput.files);
+
+                newFiles.forEach((file) => {
+                    // Avoid duplicates by filename (optional)
+                    if (selectedFiles.some(f => f.name === file.name)) return;
+
+                    selectedFiles.push(file);
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const previewDiv = document.createElement("div");
+                        previewDiv.classList.add("image-preview");
+
+                        const img = document.createElement("img");
+                        img.src = e.target.result;
+
+                        const removeBtn = document.createElement("button");
+                        removeBtn.classList.add("remove-preview");
+                        removeBtn.innerHTML = "×";
+                        removeBtn.onclick = function () {
+                            // Remove this file from selectedFiles
+                            selectedFiles = selectedFiles.filter(f => f !== file);
+                            previewDiv.remove();
+
+                            // Update input files
+                            const dt = new DataTransfer();
+                            selectedFiles.forEach(f => dt.items.add(f));
+                            editImageInput.files = dt.files;
+                        };
+
+                        previewDiv.appendChild(img);
+                        previewDiv.appendChild(removeBtn);
+                        previewContainer.appendChild(previewDiv);
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                // Update input files with combined selection
+                const dt = new DataTransfer();
+                selectedFiles.forEach(f => dt.items.add(f));
+                editImageInput.files = dt.files;
+            });
+        }
+        
+    
 }
 
-// Function to close the modal
-function closeEditModal() {
-    document.getElementById("editModal").remove();
-}
 
-// Function to send updated data
+// Function to remove an image from edit form
+let removedImages = [];
+
+function removeImage(imageName) {
+    removedImages.push(imageName);
+    document.querySelector(`img[src='/static/profile_pics/${imageName}']`).parentElement.remove();
+}
 function savePostEdit(postId) {
     const updatedData = new FormData();
     updatedData.append("patient_name", document.getElementById("editPatientName").value);
@@ -816,12 +893,17 @@ function savePostEdit(postId) {
     updatedData.append("required_date", document.getElementById("editRequiredDate").value);
     updatedData.append("urgency_status", document.getElementById("editUrgencyStatus").value);
     updatedData.append("reason", document.getElementById("editReason").value);
+    updatedData.append("removed_images", JSON.stringify(removedImages));
 
-    // Append selected images
     const images = document.getElementById("editImages").files;
     for (let i = 0; i < images.length; i++) {
         updatedData.append("images", images[i]);
     }
+
+    const saveButton = document.querySelector("#editModal button[onclick^='savePostEdit']");
+    const originalText = saveButton.innerText;
+    saveButton.innerText = "Saving...";
+    saveButton.disabled = true;
 
     fetch(`/edit_post/${postId}`, {
         method: "POST",
@@ -829,11 +911,85 @@ function savePostEdit(postId) {
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.message);
-        location.reload(); // Refresh page
+        if (data.success) {
+            alert(data.message);
+
+            // ✅ Live update the post DOM
+            const postCard = document.querySelector(`.post-card[data-id="${postId}"]`);
+            if (postCard) {
+                postCard.querySelector(".post-body").innerHTML = `
+                    <p><strong>Patient Name:</strong> ${data.updated.patient_name}</p>
+                    <p><strong>Blood Group:</strong> ${data.updated.blood_group}</p>
+                    <p><strong>Hospital:</strong> ${data.updated.hospital_name}</p>
+                    <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(data.updated.urgency_status)}">${data.updated.urgency_status}</span></p>
+                    <p><strong>Blood Needed:</strong> ${data.updated.amount_needed} bag${data.updated.amount_needed > 1 ? 's' : ''} (${data.updated.amount_needed} donor${data.updated.amount_needed > 1 ? 's' : ''} needed)</p>
+                    <p>${data.updated.reason}</p>
+                    ${createImagesHTML(data.updated.images, postId)}
+                `;
+
+                postCard.setAttribute("data-images", JSON.stringify(data.updated.images));
+            }
+
+            // ✅ Update the modal inputs (optional, in case user opens it again)
+            document.getElementById("editPatientName").value = data.updated.patient_name;
+            document.getElementById("editBloodGroup").value = data.updated.blood_group;
+            document.getElementById("editAmountNeeded").value = data.updated.amount_needed;
+            document.getElementById("editHospitalName").value = data.updated.hospital_name;
+            document.getElementById("editRequiredDate").value = data.updated.required_date;
+            document.getElementById("editUrgencyStatus").value = data.updated.urgency_status;
+            document.getElementById("editReason").value = data.updated.reason;
+
+            // ✅ Update images in the modal preview
+            if (document.getElementById("existingImages")) {
+                const existingImages = document.getElementById("existingImages");
+                existingImages.innerHTML = data.updated.images.map(img => `
+                    <div class="edit-img-box">
+                        <img src="/static/profile_pics/${img}" class="edit-post-img">
+                        <button class="remove-img-btn" onclick="removeImage('${img}')">X</button>
+                    </div>
+                `).join("");
+            }
+
+            removedImages = [];  // Clear removed list
+            closeEditModal();
+        } else {
+            alert("Failed to update post.");
+        }
+    })
+    .catch(err => {
+        console.error("Request error:", err);
+        alert("Something went wrong while saving the post.");
+    })
+    .finally(() => {
+        saveButton.innerText = originalText;
+        saveButton.disabled = false;
     });
 }
+function createImagesHTML(images, postId) {
+    const moreImages = images.length > 4 ? images.length - 4 : 0;
+    let html = `
+        <div class="post-images-container">
+            ${images.slice(0, 4).map((img, index) => `
+                <div class="post-img-box">
+                    <img src="/static/profile_pics/${img}" class="post-img" onclick="openSlider(${postId}, ${index})">
+                </div>
+            `).join('')}
+            ${moreImages > 0 ? `
+                <div class="post-img-box more-images" onclick="openSlider(${postId}, 0)">
+                    +${moreImages} more
+                </div>
+            ` : ""}
+        </div>
+    `;
+    return html;
+}
 
+
+
+// Function to close the modal
+function closeEditModal() {
+    document.getElementById("editModal").remove();
+}
 
 // Delete post function
 function deletePost(postId) {
@@ -1082,17 +1238,86 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
-    // Automatically remove flash messages after 5 seconds
-    setTimeout(function() {
-        let alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            // Only remove alerts that are NOT inside the notification popup
-            if (!alert.closest('#notifPopup')) {
-                let bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+// Automatically remove flash messages after 5 seconds
+setTimeout(function() {
+    let alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+        // Only remove alerts that are NOT inside the notification popup
+        if (!alert.closest('#notifPopup')) {
+            let bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    });
+}, 5000);
+
+document.addEventListener("DOMContentLoaded", function () {
+    const imageInput = document.getElementById("imageUpload");
+    const previewContainer = document.getElementById("imagePreviews");
+    const submitBtn = document.getElementById("submitBtn");
+
+    let selectedFiles = [];
+
+    imageInput.addEventListener("change", function () {
+        const newFiles = Array.from(imageInput.files);
+
+        newFiles.forEach(file => {
+            if (!file.type.startsWith("image/")) return;
+
+            if (selectedFiles.length >= 10) {
+                alert("You can upload a maximum of 10 images.");
+                return;
             }
+
+            // Avoid duplicate names (optional)
+            if (selectedFiles.some(f => f.name === file.name)) return;
+
+            selectedFiles.push(file);
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const wrapper = document.createElement("div");
+                wrapper.classList.add("position-relative");
+
+                const img = document.createElement("img");
+                img.src = e.target.result;
+                img.classList.add("rounded", "border");
+                img.style.width = "100px";
+                img.style.height = "100px";
+                img.style.objectFit = "cover";
+
+                const removeBtn = document.createElement("button");
+                removeBtn.type = "button";
+                removeBtn.innerText = "×";
+                removeBtn.classList.add("btn", "btn-sm", "btn-danger", "position-absolute");
+                removeBtn.style.top = "0";
+                removeBtn.style.right = "0";
+
+                removeBtn.addEventListener("click", function () {
+                    selectedFiles = selectedFiles.filter(f => f !== file);
+                    wrapper.remove();
+                    updateFileInput();
+                });
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(removeBtn);
+                previewContainer.appendChild(wrapper);
+            };
+
+            reader.readAsDataURL(file);
         });
-    }, 5000);
+
+        updateFileInput();
+    });
+
+    function updateFileInput() {
+        const dt = new DataTransfer();
+        selectedFiles.forEach(file => dt.items.add(file));
+        imageInput.files = dt.files;
+
+        submitBtn.disabled = selectedFiles.length > 10;
+    }
+});
+
 
 
 </script>

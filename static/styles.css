@@ -659,6 +659,7 @@ button:hover {
     margin-top: 10px;
 }
 
+/* Individual Image Box */
 .post-img-box {
     width: 170px;
     height: 170px;
@@ -667,6 +668,7 @@ button:hover {
     border-radius: 8px;
 }
 
+/* Post Image */
 .post-img {
     width: 100%;
     height: 100%;
@@ -674,7 +676,7 @@ button:hover {
     cursor: pointer;
 }
 
-/* More Images Button */
+/* Overlay for More Images */
 .more-images {
     display: flex;
     justify-content: center;
@@ -685,6 +687,26 @@ button:hover {
     font-size: 14px;
     cursor: pointer;
 }
+
+/* Responsive for Mobile Devices */
+@media (max-width: 480px) {
+    .post-img-box {
+        width: calc(50% - 5px); /* 2 images per row */
+        height: 150px;
+    }
+
+    .more-images {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 360px) {
+    .post-img-box {
+        width: 100%; /* 1 image per row if screen is too small */
+        height: 160px;
+    }
+}
+
 /* Post Card Styling */
 .post-card {
     border-radius: 10px;
@@ -895,6 +917,114 @@ button:hover {
 .zoom-btn:hover {
     background: #ddd;
 }
+@media (max-width: 768px) {
+    /* Image Container */
+    .slider-img-container {
+        max-width: 90vw;
+        max-height: 65vh;
+    }
+
+    /* Image */
+    .slider-img {
+        max-width: 90vw;
+        max-height: 65vh;
+    }
+
+    /* Close Button */
+    .close-btn {
+        font-size: 20px;
+        top: 8px;
+        right: 10px;
+        padding: 4px 8px;
+    }
+
+    /* Navigation Buttons */
+    .nav-btn {
+        font-size: 20px;
+        width: 38px;
+        height: 38px;
+        padding: 6px 10px;
+    }
+
+    .prev-btn { left: 10px; }
+    .next-btn { right: 10px; }
+
+    /* Zoom Controls */
+    .zoom-controls {
+        bottom: 15px;
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .zoom-btn {
+        font-size: 14px;
+        padding: 6px 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .slider-img-container,
+    .slider-img {
+        max-width: 95vw;
+        max-height: 60vh;
+    }
+
+    .close-btn {
+        font-size: 18px;
+        top: 6px;
+        right: 8px;
+        padding: 3px 6px;
+    }
+
+    .nav-btn {
+        font-size: 18px;
+        width: 34px;
+        height: 34px;
+    }
+
+    .zoom-controls {
+        bottom: 12px;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .zoom-btn {
+        font-size: 13px;
+        padding: 5px 8px;
+    }
+}
+@media (max-width: 480px) {
+    .slider-img-container,
+    .slider-img {
+        max-width: 95vw;
+        max-height: 60vh;
+    }
+
+    .close-btn {
+        font-size: 18px;
+        top: 6px;
+        right: 8px;
+        padding: 3px 6px;
+    }
+
+    .nav-btn {
+        font-size: 18px;
+        width: 34px;
+        height: 34px;
+    }
+
+    .zoom-controls {
+        bottom: 12px;
+        flex-direction: row; /* ✅ Keep horizontal */
+        gap: 6px;
+    }
+
+    .zoom-btn {
+        font-size: 13px;
+        padding: 5px 8px;
+    }
+}
+
 /* Donor Section Styling */
 .donor-tab {
     padding: 20px;
@@ -1236,4 +1366,92 @@ button:hover {
     height: 100%;
      /* Semi-transparent background */
     z-index: 999;
+}
+.edit-img-box {
+    display: inline-block;
+    position: relative;
+    margin: 5px;
+}
+
+.edit-post-img {
+    width: 120px; /* Set a fixed width */
+    height: 120px; /* Set a fixed height */
+    object-fit: cover; /* Ensures images are cropped, not stretched */
+    border-radius: 8px; /* Optional: rounded corners */
+}
+
+.remove-img-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: red;
+    color: white; /* or use var(--text-color) if it's readable */
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    line-height: 20px;  /* Match the button height */
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0;
+}
+.remove-img-btn:hover {
+    background: darkred;
+}
+.custom-file-upload {
+    display: inline-block;
+    padding: 10px 20px;
+    cursor: pointer;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.preview-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.image-preview {
+    position: relative;
+    display: inline-block;
+    margin: 8px;
+}
+
+.image-preview img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+  
+.remove-preview {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: red;
+    color: white; /* or use var(--text-color) if it's readable */
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    line-height: 20px;  /* Match the button height */
+    text-align: center;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0;
+}
+.remove-preview:hover {
+    background: darkred;
+}  
+#imagePreviews .position-relative {
+    width: 100px;
+    height: 100px;
 }

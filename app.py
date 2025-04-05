@@ -15,6 +15,9 @@ from geopy.distance import geodesic  # To calculate the closest location
 from datetime import datetime, timezone, UTC
 from flask_login import current_user, login_required
 import uuid
+import json
+from PIL import Image
+from PIL import Image, ExifTags
 
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
@@ -493,47 +496,94 @@ def load_past_requests():
     })
 
 
-@app.route('/edit_post/<int:post_id>', methods=['POST'])
+
+def resize_image(image_path, max_size=(800, 800)):
+    """Resize image to a max width & height while maintaining aspect ratio and correcting rotation."""
+    img = Image.open(image_path)
+
+    # Handle EXIF rotation (common for phone images)
+    try:
+        exif = img._getexif()
+        if exif:
+            orientation_key = next(
+                (key for key, val in ExifTags.TAGS.items() if val == "Orientation"), None
+            )
+            if orientation_key and orientation_key in exif:
+                orientation = exif[orientation_key]
+                if orientation == 3:
+                    img = img.rotate(180, expand=True)
+                elif orientation == 6:
+                    img = img.rotate(270, expand=True)
+                elif orientation == 8:
+                    img = img.rotate(90, expand=True)
+    except Exception as e:
+        print(f"EXIF rotation issue: {e}")
+
+    img.thumbnail(max_size)  # Resize maintaining aspect ratio
+    img.save(image_path, optimize=True)
+
+@app.route("/edit_post/<int:post_id>", methods=["POST"])
 def edit_post(post_id):
     post = BloodRequest.query.get_or_404(post_id)
-
-    if session.get("user_id") != post.user_id:
-        return jsonify({"message": "Unauthorized"}), 403
-
-    patient_name = request.form.get("patient_name")
-    blood_group = request.form.get("blood_group")
-    amount_needed = request.form.get("amount_needed")
-    hospital_name = request.form.get("hospital_name")
-    required_date = request.form.get("required_date")
-    urgency_status = request.form.get("urgency_status")
-    reason = request.form.get("reason")
+    removed_images = request.form.get('removed_images', '[]')
 
     # Update text fields
-    post.patient_name = patient_name or post.patient_name
-    post.blood_group = blood_group or post.blood_group
-    post.amount_needed = float(amount_needed) if amount_needed else post.amount_needed
-    post.hospital_name = hospital_name or post.hospital_name
-    post.required_date = datetime.strptime(required_date, "%Y-%m-%dT%H:%M") if required_date else post.required_date
-    post.urgency_status = urgency_status or post.urgency_status
-    post.reason = reason or post.reason
+    post.patient_name = request.form["patient_name"]
+    post.blood_group = request.form["blood_group"]
+    post.amount_needed = request.form["amount_needed"]
+    post.hospital_name = request.form["hospital_name"]
+    post.required_date = request.form["required_date"]
+    post.urgency_status = request.form["urgency_status"]
+    post.reason = request.form["reason"]
+
+    if removed_images:
+        removed_images = json.loads(removed_images)
+        image_list = post.images.split(',') if post.images else []
+        for img in removed_images:
+            if img in image_list:
+                image_list.remove(img)
+                # Optional: remove file from disk
+                image_path = os.path.join(app.config['UPLOAD_FOLDER'], img)
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+        post.images = ','.join(image_list)
 
     # Handle new image uploads
-    image_filenames = post.images.split(",") if post.images else []
-
     if "images" in request.files:
-        images = request.files.getlist("images")
-        for image in images:
-            if image and image.filename:
-                ext = os.path.splitext(image.filename)[1]
-                unique_filename = f"{uuid.uuid4().hex}{ext}"
-                image_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
-                image.save(image_path)
-                image_filenames.append(unique_filename)
+        files = request.files.getlist("images")
+        new_filenames = []
+        for file in files:
+            if file.filename:
+                filename = f"{post_id}_{file.filename}"
+                filepath = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(filepath)
+                resize_image(filepath)
+                new_filenames.append(filename)
 
-    post.images = ",".join(image_filenames)
+        # Append new images to existing ones
+        if new_filenames:
+            old = post.images.split(",") if post.images else []
+            post.images = ",".join(old + new_filenames)
 
     db.session.commit()
-    return jsonify({"message": "Post updated successfully"})
+
+    # Return updated content for frontend
+    return jsonify({
+        "success": True,
+        "message": "Post updated successfully",
+        "updated": {
+            "post_id": post.id,
+            "patient_name": post.patient_name,
+            "reason": post.reason,
+            "blood_group": post.blood_group,
+            "amount_needed": post.amount_needed,
+            "hospital_name": post.hospital_name,
+            "urgency_status": post.urgency_status,
+            "images": post.images.split(",") if post.images else []
+        }
+    })
+
+
 @app.route('/get_post/<int:post_id>')
 def get_post(post_id):
     post = BloodRequest.query.get_or_404(post_id)
