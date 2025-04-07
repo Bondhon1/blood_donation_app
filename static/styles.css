@@ -731,18 +731,44 @@ button:hover {
     font-size: 13px;
 }
 
-/* Status Bar */
+/* Container of donor status */
 .status-bar {
-    padding: 5px;
-    text-align: center;
-    font-size: 14px;
-    border-radius: 5px;
-    background: #f8f9fa;
+    background-color: #f8f9fa; /* light gray background */
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #333;
+    border: 1px solid #ddd;
 }
 
-.donor-assigned {
-    background: #d4edda;
-    color: #155724;
+/* If the request is fulfilled */
+.status-bar.donor-assigned {
+    background-color: #e6f8ec;
+    color: #218838;
+    border-color: #b7e4c7;
+}
+
+/* Dynamic text styles */
+.status-bar span {
+    display: inline-block;
+}
+
+/* Additional styles for dynamic coloring (optional) */
+.status-text-fulfilled {
+    color: #28a745;
+}
+
+.status-text-partial {
+    color: #ffc107;
+}
+
+.status-text-none {
+    color: #dc3545;
 }
 
 /* Post Actions */

@@ -486,6 +486,7 @@ def load_past_requests():
             "hospital_name": r.hospital_name,
             "urgency_status": r.urgency_status,
             "reason": r.reason,
+            "donors_assigned": r.donors_assigned,
             "amount_needed": r.amount_needed,  # ✅ Blood bags needed
             "donors_needed": r.amount_needed,  # ✅ One donor per bag
             "created_at": r.created_at.strftime("%Y-%m-%d %H:%M"),
@@ -619,9 +620,30 @@ def mark_donor_found(post_id):
     if session.get("user_id") != post.user_id:
         return jsonify({"message": "Unauthorized"}), 403
 
-    post.status = "Fulfilled"
+    data = request.get_json()
+    found_count = data.get('found_count')
+
+    if found_count is None or not isinstance(found_count, int) or found_count <= 0:
+        return jsonify({"message": "Invalid donor count"}), 400
+
+    # ❗Check if found_count exceeds remaining needed
+    remaining_needed = post.donors_needed
+    if found_count > remaining_needed:
+        return jsonify({"message": f"Only {remaining_needed} donor(s) needed. You entered {found_count}."}), 400
+
+    post.donors_assigned += found_count
+
+    if post.is_fulfilled:
+        post.status = "Fulfilled"
+
     db.session.commit()
-    return jsonify({"message": "Post marked as Fulfilled"})
+
+    return jsonify({
+        "message": f"{found_count} donor(s) marked as found.",
+        "new_assigned": f"{post.donors_assigned} out of {post.amount_needed} Donors Assigned" if not post.is_fulfilled else "All Donors Assigned",
+        "status": post.status
+    })
+
 
 
 
@@ -921,4 +943,4 @@ def admin_logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000,debug=True)
