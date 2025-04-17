@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike
 from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -676,8 +676,43 @@ def upvote_request(post_id):
 
 @app.route('/get_comments/<int:request_id>')
 def get_comments(request_id):
-    comments = Comment.query.filter_by(blood_request_id=request_id).order_by(Comment.created_at.desc()).all()
-    return jsonify({"comments": [{"username": c.user.username, "text": c.text} for c in comments]})
+    comments = Comment.query.filter_by(blood_request_id=request_id).order_by(Comment.created_at.asc()).all()
+
+    result = []
+    for comment in comments:
+        replies_data = [{
+            "id": reply.id,
+            "text": reply.text,
+            "username": reply.user.username,
+            "profile_picture": reply.user.profile_picture,
+            "created_at": reply.created_at.isoformat()
+        } for reply in comment.replies]
+
+        result.append({
+            "id": comment.id,
+            "text": comment.text,
+            "username": comment.user.username,
+            "profile_picture": comment.user.profile_picture,
+            "created_at": comment.created_at.isoformat(),
+            "replies": replies_data
+        })
+
+    return jsonify({"comments": result})
+@app.route('/add_reply/<int:comment_id>', methods=['POST'])
+def add_reply(comment_id):
+    if 'user_id' not in session:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    data = request.json
+    if not data.get("text"):
+        return jsonify({"success": False, "error": "Empty reply"}), 400
+
+    reply = Reply(user_id=session['user_id'], comment_id=comment_id, text=data["text"])
+    db.session.add(reply)
+    db.session.commit()
+
+    return jsonify({"success": True})
+
 
 @app.route('/add_comment/<int:request_id>', methods=['POST'])
 def add_comment(request_id):
@@ -693,6 +728,25 @@ def add_comment(request_id):
     db.session.commit()
 
     return jsonify({"success": True})
+
+@app.route('/edit_comment/<int:comment_id>', methods=['PUT'])
+def edit_comment(comment_id):
+    comment = Comment.query.get(comment_id)
+    if comment.user_id != session.get('user_id'):
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+    comment.text = request.json["text"]
+    db.session.commit()
+    return jsonify({"success": True})
+
+@app.route('/delete_comment/<int:comment_id>', methods=['DELETE'])
+def delete_comment(comment_id):
+    comment = Comment.query.get(comment_id)
+    if comment.user_id != session.get('user_id'):
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+    db.session.delete(comment)
+    db.session.commit()
+    return jsonify({"success": True})
+
 @app.route('/become_donor', methods=['POST'])
 def become_donor():
     if 'user_id' not in session:

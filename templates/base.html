@@ -24,13 +24,11 @@
     <body>
         <header>
             <nav class="navbar navbar-expand-lg navbar-dark bg-danger fixed-top">
-                <div class="container-fluid">
-                    <!-- Logo -->
-                    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('home') }}">
-                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo" height="50">
-                        
+                <div class="container-fluid d-flex align-items-center justify-content-between px-2">
+                    <a class="navbar-brand d-flex align-items-center me-2" href="{{ url_for('home') }}">
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo" height="40">
                         {% if not session.get('user_id') and not session.get('admin_username') %}
-                            <span class="ms-2 fw-bold text-white">LifeDrop</span>
+                            <span class="ms-2 fw-bold text-white d-none d-sm-inline">LifeDrop</span>
                         {% endif %}
                     </a>
     
@@ -41,12 +39,23 @@
                             <a href="{{ url_for('register') }}" class="btn btn-outline-light me-2 d-inline-block d-md-none">Register</a>
                         {% endif %}
                     </div>
+                    <!-- Center: Search Bar (only if logged in) -->
                     {% if session.get('user_id') or session.get('admin_username') %}
-                        <div class="search-container position-relative">
-                            <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
-                            <div id="searchResults" class="dropdown-popup"></div>
-                        </div>
+                    <div class="flex-grow-1 d-none d-sm-block">
+                        <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
+                        <div id="searchResults" class="dropdown-popup"></div>
+                    </div>
                     {% endif %}
+
+                    <!-- Right: Mobile Search + Menu -->
+                    <div class="d-flex d-sm-none align-items-center ms-auto">
+                        {% if session.get('user_id') or session.get('admin_username') %}
+                            <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 120px;">
+                        {% endif %}
+                        <button class="btn btn-outline-light btn-sm" id="mobileMenuToggle">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                    </div>
 
                     <!-- Navbar Links -->
                     <div class="collapse navbar-collapse" id="navbarNav">
@@ -153,9 +162,7 @@
         <script src="{{ url_for('static', filename='scripts.js') }}"></script>
     
         
-        <button id="scrollToTopBtn" class="btn btn-danger" style="display: none; position: fixed; bottom: 20px; right: 20px;">
-            <i class="fas fa-arrow-up"></i>
-        </button>
+        
 
         
     </body>

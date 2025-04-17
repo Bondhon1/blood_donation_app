@@ -46,6 +46,7 @@ body {
     background: var(--card-bg);
     box-shadow: 0 2px 10px var(--box-shadow);
     transition: background 0.3s ease, box-shadow 0.3s ease;
+    color: var(--text-color)!important;
 }
 @media (max-width: 768px) {
     .card-body {
@@ -139,7 +140,7 @@ form {
 
 
 .form-container {
-    max-width: 400px;
+    max-width: 600px;
     margin: 50px auto;
     padding: 20px;
     background: var(--card-bg);
@@ -410,6 +411,62 @@ button:hover {
     font-size: 1rem !important;
     border: 1px solid white !important;
 }
+
+/* Ensures full width on mobile */
+@media (max-width: 576px) {
+    .full-width-on-mobile {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+          
+  
+    .full-width-on-mobile .card {
+      border-radius: 0;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  
+    .cover-container img.cover-image {
+      border-radius: 0 !important;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    /* Stack login/register buttons on mobile */
+    .navbar .d-inline-block.d-md-none {
+        display: block !important;
+        width: 100%;
+        margin: 4px 0;
+    }
+
+    /* Dark mode toggle button spacing on mobile */
+    .navbar .btn#darkModeToggle {
+        width: 100%;
+        margin: 4px 0;
+    }
+
+    /* Ensure all buttons have good spacing in mobile nav */
+    .navbar .btn {
+        font-size: 14px;
+        padding: 10px;
+    }
+
+    /* Optional: reduce navbar brand size for mobile */
+    .navbar-brand img {
+        height: 40px;
+    }
+
+    .navbar-brand span {
+        font-size: 18px;
+    }
+
+    /* Optional: give the header a bit more breathing room */
+    header .container-fluid {
+        flex-wrap: wrap;
+    }
+}
+
 /* Profile Picture & Container Fix */
 .profile-container {
     position: relative;
@@ -453,13 +510,13 @@ button:hover {
     border: 2px solid #ddd;
     position: relative;
     top: 110px;
-    right: 1020px; /* Adjust so it doesn’t overlap */
+    right: 1055px; /* Adjust so it doesn’t overlap */
     cursor: pointer;
 }
 
 /* Cover Photo */
 .cover-container {
-    height: 250px;
+    height: auto;
     overflow: hidden;
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
@@ -470,8 +527,9 @@ button:hover {
 
 .cover-image {
     width: 100%;
-    height: 100%;
+    height: auto;
     object-fit: cover;
+    max-height: 300px;
 }
 
 /* RESPONSIVE FIXES */
@@ -561,6 +619,7 @@ button:hover {
         width: 100%;
     }
 }
+
 /* 📌 Mobile Navbar Adjustments */
 @media (max-width: 991px) {
     .navbar-collapse {
@@ -801,46 +860,63 @@ button:hover {
     color: var(--muted-text) !important;  /* Ensure proper contrast */
     opacity: 0.8;
 }
-/* Comments */
-.comments-section {
-    color: var(--text-color);
+
+.comment-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.username {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
     text-align: left;
-    margin-top: 10px;
-    border-top: 1px solid #ddd;
-    padding-top: 10px;
 }
 
-.comment-input {
+.timestamp {
+    font-size: 0.75rem;
+    color: #888;
+    text-align: left;
+}
+
+.comment-text {
+    font-size: 0.875rem;
+    margin-bottom: 6px;
+}
+
+.comment-bubble {
+    background-color: var(--card-bg);
     color: var(--text-color);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-}
-
-.comment-input input {
-    flex-grow: 1;  /* Expands to fill available space */
-    padding: 8px;
-    border: 1px solid var(--input-border);
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-.comment-input button {
+    border-radius: 12px;
     padding: 8px 12px;
-    background: #c0392b; /* Red theme */
-    color: var(--text-color);
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    white-space: nowrap; /* Prevents button from stretching */
+    margin-top: 4px;
+    width: 100%; /* takes full width of available space */
+    word-wrap: break-word;
+    box-shadow: var(--box-shadow) 0px 2px 10px;
 }
 
-.comment-input button:hover {
-    background-color: red;
+.comment-text {
+    font-size: 0.875rem;
+    margin-bottom: 6px;
 }
 
+.reply-link {
+    font-size: 0.75rem;
+    color: #888;
+    text-decoration: none;
+}
+
+.reply-link:hover {
+    text-decoration: underline;
+}
+
+.reply {
+    border-left: 2px solid #f0f0f0;
+    padding-left: 12px;
+    background-color: var(--card-bg);
+}
 
 /* Image Slider */
 .image-slider {
@@ -1190,9 +1266,7 @@ button:hover {
     background-color: var(--bg-color);
     color: var(--text-color);
 }
-.card-body{
-    color: var(--text-color)!important;
-}
+
 
 /* 📌 Menu Button */
 /* 📌 Menu Button */
@@ -1249,6 +1323,7 @@ button:hover {
     .sidebar.active + .menu-btn {
         left: 210px;
     }
+    
 }
 .content {
     margin-left: 0; /* Remove extra left margin */
@@ -1481,3 +1556,129 @@ button:hover {
     width: 100px;
     height: 100px;
 }
+#loading-spinner {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.custom-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+.custom-modal-box {
+    background-color: #e61a1a;
+    padding: 20px;
+    width: 90%;
+    max-width: 400px;
+    border-radius: 10px;
+    text-align: center;
+    animation: fadeInScale 0.3s ease-in-out;
+}
+  
+@keyframes fadeInScale {
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+}
+html, body {
+    overflow-x: hidden;
+}
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+/* Ensure full width for your container */
+.full-width-on-mobile {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Reset Bootstrap’s default padding in .container-fluid */
+.container-fluid.full-width-on-mobile {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}  
+/* Fix left spacing for logo and reload button */
+.navbar .container-fluid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Ensure no side gaps on mobile */
+  @media (max-width: 576px) {
+    .navbar {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+    }
+  
+    .navbar .container-fluid {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+  
+    .navbar-brand {
+      margin-left: 0 !important;
+    }
+  
+    .navbar .btn {
+      width: 100%;
+      margin: 4px 0;
+      text-align: left;
+    }
+  
+    .search-container {
+      width: 100%;
+      padding: 0 10px;
+      margin-top: 10px;
+    }
+  
+    .search-container input {
+      width: 100%;
+    }
+  
+    .navbar .d-md-none {
+      margin-top: 10px;
+    }
+  
+    
+  
+    
+  
+    /* Hide News Feed/Chat etc. text and only show icons on mobile if needed */
+    .hide-on-mobile {
+      display: none;
+    }
+  }
+  
+  /* Align logo and brand text tightly */
+
+  /* Desktop searchbar layout fix */
+@media (min-width: 576px) {
+    .navbar .form-control {
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .search-container {
+        width: auto;
+    }
+}
+
+
+  

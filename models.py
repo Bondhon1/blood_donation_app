@@ -155,6 +155,34 @@ class Comment(db.Model):
     # ✅ Use back_populates to explicitly define relationships
     user = db.relationship('User', back_populates='comments')
     blood_request = db.relationship('BloodRequest', back_populates='comments')
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=True)
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]), lazy=True)
+    likes = db.relationship('CommentLike', backref='comment', lazy=True)
+
+class Reply(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    comment_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User')
+    comment = db.relationship('Comment', back_populates='replies')
+
+Comment.replies = db.relationship('Reply', back_populates='comment', cascade='all, delete-orphan')
+
+
+class CommentLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    comment_id = db.Column(db.Integer, db.ForeignKey('comment.id'), nullable=False)
+
+
+class ReplyLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reply_id = db.Column(db.Integer, db.ForeignKey('reply.id'), nullable=False)
+
 
 class BloodRequestUpvote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
