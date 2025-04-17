@@ -683,6 +683,7 @@ def get_comments(request_id):
         replies_data = [{
             "id": reply.id,
             "text": reply.text,
+            "image": reply.image if reply.image else None,
             "username": reply.user.username,
             "profile_picture": reply.user.profile_picture,
             "created_at": reply.created_at.isoformat()
@@ -692,26 +693,40 @@ def get_comments(request_id):
             "id": comment.id,
             "text": comment.text,
             "username": comment.user.username,
+            "image": comment.image if comment.image else None,
             "profile_picture": comment.user.profile_picture,
             "created_at": comment.created_at.isoformat(),
             "replies": replies_data
         })
 
     return jsonify({"comments": result})
+
+
 @app.route('/add_reply/<int:comment_id>', methods=['POST'])
 def add_reply(comment_id):
     if 'user_id' not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
-    data = request.json
-    if not data.get("text"):
-        return jsonify({"success": False, "error": "Empty reply"}), 400
+    text = request.form.get('text')
+    if not text:
+        text = ""
 
-    reply = Reply(user_id=session['user_id'], comment_id=comment_id, text=data["text"])
+    image = request.files.get('image')
+    image_filename = None
+    if image:
+        image_filename = secure_filename(f"{uuid.uuid4().hex}_{image.filename}")
+        image.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+
+    reply = Reply(
+        user_id=session['user_id'],
+        comment_id=comment_id,
+        text=text,
+        image=image_filename
+    )
     db.session.add(reply)
     db.session.commit()
-
     return jsonify({"success": True})
+
 
 
 @app.route('/add_comment/<int:request_id>', methods=['POST'])
@@ -719,15 +734,26 @@ def add_comment(request_id):
     if 'user_id' not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
-    data = request.json
-    if not data.get("text"):
-        return jsonify({"success": False, "error": "Empty comment"}), 400
+    text = request.form.get('text')
+    if not text:
+        text = ""
 
-    new_comment = Comment(user_id=session['user_id'], blood_request_id=request_id, text=data["text"])
+    image = request.files.get('image')
+    image_filename = None
+    if image:
+        image_filename = secure_filename(f"{uuid.uuid4().hex}_{image.filename}")
+        image.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
+
+    new_comment = Comment(
+        user_id=session['user_id'],
+        blood_request_id=request_id,
+        text=text,
+        image=image_filename
+    )
     db.session.add(new_comment)
     db.session.commit()
-
     return jsonify({"success": True})
+
 
 @app.route('/edit_comment/<int:comment_id>', methods=['PUT'])
 def edit_comment(comment_id):

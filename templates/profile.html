@@ -1217,21 +1217,78 @@ function reloadComments(requestId) {
     if (!commentsSection) return;
 
     commentsSection.innerHTML = "";
+
     fetch(`/get_comments/${requestId}`)
         .then(res => res.json())
         .then(data => {
             commentsSection.innerHTML = data.comments.map(comment => createCommentHTML(comment, requestId)).join('');
             commentsSection.innerHTML += `
-                <div class="comment-input">
-                    <input type="text" id="comment-text-${requestId}" placeholder="Write a comment...">
-                    <button onclick="submitComment(${requestId})">Post</button>
+                <div class="comment-input d-flex align-items-center gap-2 mt-3">
+                    <label for="comment-image-${requestId}" class="btn btn-outline-secondary p-2 d-flex align-items-center justify-content-center" style="height: 38px; width: 38px;">
+                        <i class="bi bi-camera"></i>
+                    </label>
+                    <input type="file" accept="image/*" id="comment-image-${requestId}" style="display:none">
+                    
+                    <input type="text" id="comment-text-${requestId}" class="form-control" placeholder="Write a comment...">
+
+                    <button onclick="submitComment(${requestId})" class="btn btn-danger">Post</button>
                 </div>
+
+                <div class="preview-container" id="preview-wrapper-${requestId}" style="display:none;">
+                    <img id="preview-comment-img-${requestId}">
+                    <button class="remove-preview-btn" onclick="removeCommentPreview(${requestId})">×</button>
+                </div>
+
+
             `;
+            addCommentImagePreviewListener(requestId);
         });
 }
 
+function addCommentImagePreviewListener(requestId) {
+    const input = document.getElementById(`comment-image-${requestId}`);
+    const preview = document.getElementById(`preview-comment-img-${requestId}`);
+    const wrapper = document.getElementById(`preview-wrapper-${requestId}`);
 
+    input.addEventListener("change", () => {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                wrapper.style.display = "flex";
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+}
 
+function removeCommentPreview(requestId) {
+    const input = document.getElementById(`comment-image-${requestId}`);
+    const preview = document.getElementById(`preview-comment-img-${requestId}`);
+    const wrapper = document.getElementById(`preview-wrapper-${requestId}`);
+    
+    input.value = "";
+    preview.src = "";
+    wrapper.style.display = "none";
+}
+
+function submitComment(requestId) {
+    const text = document.getElementById(`comment-text-${requestId}`).value;
+    const imageInput = document.getElementById(`comment-image-${requestId}`);
+    const formData = new FormData();
+
+    formData.append("text", text || "");
+    if (imageInput && imageInput.files.length > 0) {
+        formData.append("image", imageInput.files[0]);
+    }
+
+    fetch(`/add_comment/${requestId}`, {
+        method: 'POST',
+        body: formData
+    }).then(res => res.json()).then(data => {
+        if (data.success) reloadComments(requestId);
+    });
+}
 
 
 function toggleComments(requestId) {
@@ -1242,40 +1299,79 @@ function toggleComments(requestId) {
         return;
     }
 
-    // inside toggleComments
     fetch(`/get_comments/${requestId}`)
         .then(res => res.json())
         .then(data => {
             commentsSection.innerHTML = data.comments.map(comment => createCommentHTML(comment, requestId)).join('');
-            commentsSection.innerHTML += `
-                <div class="comment-input">
-                    <input type="text" id="comment-text-${requestId}" placeholder="Write a comment...">
-                    <button onclick="submitComment(${requestId})">Post</button>
-                </div>
-            `;
-        });
 
-}
-function createCommentHTML(comment, requestId) {
-    const repliesHTML = comment.replies.map(reply => `
-        <div class="reply d-flex ms-4 mt-3 align-items-start">
-            <img src="/static/profile_pics/${reply.profile_picture}" class="comment-avatar me-2">
-            <div class="d-flex flex-column flex-md-row align-items-start">
-                <div class="user-info me-2 text-start">
-                    <a href="/profile/${reply.username}" class="username d-block">${reply.username}</a>
-                    <div class="timestamp">${convertToUserTime(reply.created_at)}</div>
+            commentsSection.innerHTML += `
+                <div class="comment-input d-flex align-items-center gap-2 mt-3">
+                    <label for="comment-image-${requestId}" class="btn btn-outline-secondary p-2 d-flex align-items-center justify-content-center" style="height: 38px; width: 38px;">
+                        <i class="bi bi-camera"></i>
+                    </label>
+                    <input type="file" accept="image/*" id="comment-image-${requestId}" style="display:none">
+                    
+                    <input type="text" id="comment-text-${requestId}" class="form-control" placeholder="Write a comment...">
+
+                    <button onclick="submitComment(${requestId})" class="btn btn-danger">Post</button>
                 </div>
-                <div class="comment-bubble">
-                    <div class="comment-text">${reply.text}</div>
+
+                <div class="preview-container" id="preview-wrapper-${requestId}" style="display:none;">
+                    <img id="preview-comment-img-${requestId}">
+                    <button class="remove-preview-btn" onclick="removeCommentPreview(${requestId})">×</button>
+                </div>
+
+
+            `;
+
+            addCommentImagePreviewListener(requestId);
+        });
+}
+
+
+function createCommentHTML(comment, requestId) {
+        const isValidImage = (img) => {
+        return typeof img === 'string' && img.trim() !== "" && img.trim().toLowerCase() !== "none";
+    };
+
+    const repliesHTML = comment.replies.map(reply => {
+        const replyProfileImg = isValidImage(reply.profile_picture)
+            ? `<img src="/static/profile_pics/${reply.profile_picture}" class="comment-avatar me-2">`
+            : `<div class="comment-avatar placeholder-avatar me-2"></div>`;
+
+            const replyContentImg = isValidImage(reply.image)
+            ? `<img src="/static/profile_pics/${reply.image}" class="comment-img">`
+            : "";
+
+        return `
+            <div class="reply d-flex ms-4 mt-3 align-items-start">
+                ${replyProfileImg}
+                <div class="d-flex flex-column flex-md-row align-items-start">
+                    <div class="user-info me-2 text-start">
+                        <a href="/profile/${reply.username}" class="username d-block">${reply.username}</a>
+                        <div class="timestamp">${convertToUserTime(reply.created_at)}</div>
+                    </div>
+                    <div class="comment-bubble">
+                        <div class="comment-text">${reply.text}</div>
+                        ${replyContentImg}
+                    </div>
                 </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+
+    const commentProfileImg = isValidImage(comment.profile_picture)
+        ? `<img src="/static/profile_pics/${comment.profile_picture}" class="comment-avatar me-2">`
+        : `<div class="comment-avatar placeholder-avatar me-2"></div>`;
+
+        const commentContentImg = isValidImage(comment.image)
+        ? `<img src="/static/profile_pics/${comment.image}" class="comment-img">`
+        : "";
 
     return `
         <div class="comment mt-3">
             <div class="d-flex align-items-start">
-                <img src="/static/profile_pics/${comment.profile_picture}" class="comment-avatar me-2">
+                ${commentProfileImg}
                 <div class="d-flex flex-column flex-md-row align-items-start">
                     <div class="user-info me-2 text-start">
                         <a href="/profile/${comment.username}" class="username d-block">${comment.username}</a>
@@ -1283,6 +1379,7 @@ function createCommentHTML(comment, requestId) {
                     </div>
                     <div class="comment-bubble">
                         <div class="comment-text">${comment.text}</div>
+                        ${commentContentImg}
                         <a href="javascript:void(0);" onclick="showReplyInput(${comment.id}, ${requestId})" class="reply-link">Reply</a>
                     </div>
                 </div>
@@ -1296,16 +1393,6 @@ function createCommentHTML(comment, requestId) {
 
 
 
-function submitComment(requestId) {
-    const text = document.getElementById(`comment-text-${requestId}`).value;
-    fetch(`/add_comment/${requestId}`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text })
-    }).then(res => res.json()).then(data => {
-        if (data.success) reloadComments(requestId);
-    });
-}
 
 function showReplyInput(commentId, requestId) {
     const existingInput = document.getElementById(`reply-input-${commentId}`);
@@ -1316,37 +1403,78 @@ function showReplyInput(commentId, requestId) {
 
     const replyContainer = document.getElementById(`replies-${commentId}`);
     const inputBox = document.createElement('div');
+    inputBox.classList.add("mt-2");
+
     inputBox.innerHTML = `
-        <div class="reply-input-wrapper">
+        <div class="d-flex align-items-center gap-2">
+            <label for="reply-image-${commentId}" class="btn btn-outline-secondary p-2 d-flex align-items-center justify-content-center" style="height: 38px; width: 38px;">
+                <i class="bi bi-camera"></i>
+            </label>
+            <input type="file" accept="image/*" id="reply-image-${commentId}" style="display:none">
             <input type="text" id="reply-input-${commentId}" class="form-control" placeholder="Write a reply...">
-            <button class="btn btn-sm btn-primary mt-1" onclick="submitReply(${commentId}, ${requestId})">Reply</button>
+            <button class="btn btn-danger" onclick="submitReply(${commentId}, ${requestId})">Reply</button>
         </div>
+        <div class="preview-container" id="preview-reply-wrapper-${commentId}" style="display:none;">
+            <img id="preview-reply-img-${commentId}">
+            <button class="remove-preview-btn" onclick="removeReplyPreview(${commentId})">×</button>
+        </div>
+
+
     `;
+
     replyContainer.appendChild(inputBox);
+    addReplyImagePreviewListener(commentId);
 }
 
 
+function addReplyImagePreviewListener(commentId) {
+    const input = document.getElementById(`reply-image-${commentId}`);
+    const preview = document.getElementById(`preview-reply-img-${commentId}`);
+    const wrapper = document.getElementById(`preview-reply-wrapper-${commentId}`);
+
+    input.addEventListener("change", () => {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                preview.src = e.target.result;
+                wrapper.style.display = "flex";
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    });
+}
+
+function removeReplyPreview(commentId) {
+    const input = document.getElementById(`reply-image-${commentId}`);
+    const preview = document.getElementById(`preview-reply-img-${commentId}`);
+    const wrapper = document.getElementById(`preview-reply-wrapper-${commentId}`);
+
+    input.value = "";
+    preview.src = "";
+    wrapper.style.display = "none";
+}
+
+
+
 function submitReply(commentId, requestId) {
-    const input = document.querySelector(`#reply-input-${commentId}`);
-    if (!input || !input.value.trim()) return;
+    const textInput = document.getElementById(`reply-input-${commentId}`);
+    const imageInput = document.getElementById(`reply-image-${commentId}`);
+    const formData = new FormData();
+
+    formData.append("text", textInput.value);
+    if (imageInput && imageInput.files.length > 0) {
+        formData.append("image", imageInput.files[0]);
+    }
 
     fetch(`/add_reply/${commentId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input.value.trim() })
+        body: formData
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            input.parentElement.remove();
-            console.log("✅ Reply submitted. Reloading comments for requestId:", requestId);
             reloadComments(requestId);
-        } else {
-            alert(data.error || "Failed to reply");
         }
-    })
-    .catch(err => {
-        console.error("Reply Error:", err);
     });
 }
 

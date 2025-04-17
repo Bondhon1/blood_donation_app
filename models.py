@@ -151,6 +151,7 @@ class Comment(db.Model):
     blood_request_id = db.Column(db.Integer, db.ForeignKey('blood_request.id'), nullable=False)
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    image = db.Column(db.String(200), nullable=True)
 
     # ✅ Use back_populates to explicitly define relationships
     user = db.relationship('User', back_populates='comments')
@@ -165,6 +166,7 @@ class Reply(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     text = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    image = db.Column(db.String(200), nullable=True)
 
     user = db.relationship('User')
     comment = db.relationship('Comment', back_populates='replies')
