@@ -1,5 +1,7 @@
 {% extends "base.html" %}
-{% block title %}News Feed{% endblock %}{% block content %}
+{% block title %}News Feed{% endblock %}
+
+{% block content %}
 <div class="container mt-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -10,54 +12,47 @@
             </div>
         {% endfor %}
     {% endif %}
-{% endwith %}
+    {% endwith %}
+    <!-- Custom Modal HTML (place near the end of body or in base.html) -->
+    <div id="customModal" class="custom-modal-overlay" style="display: none;">
+        <div class="custom-modal-box">
+        <h5 id="customModalTitle">Modal Title</h5>
+        <p id="customModalMessage">Modal Message</p>
+        
+        <!-- Optional input -->
+        <input type="text" id="customModalInput" class="form-control mt-2" style="display: none;" />
+    
+        <div class="modal-actions mt-3">
+            <button id="customModalOkBtn" class="btn btn-primary">OK</button>
+            <button id="customModalCancelBtn" class="btn btn-secondary">Cancel</button>
+            
+        </div>
+        </div>
+    </div>
+
+
+
+
+
 
     <h2 class="text-center">Blood Donation Requests</h2>
     <p class="text-center">Find people in need and donate blood to save lives!</p>
 
-    {% if donation_requests %}
-    <div class="table-responsive">
-        <table class="table table-bordered">
-            <thead class="table-danger">
-                <tr>
-                    <th>#</th>
-                    <th>Blood Group</th>
-                    <th>Location</th>
-                    <th>Contact</th>
-                    <th>Posted By</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for request in donation_requests %}
-                <tr>
-                    <td>{{ request.id }}</td>
-                    <td>{{ request.blood_group }}</td>
-                    <td>{{ request.location }}</td>
-                    <td>{{ request.contact }}</td>
-                    <td>{{ request.posted_by }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div id="request-feed">
+        <!-- Blood request posts will load here dynamically -->
     </div>
-    {% else %}
-    <p class="text-center text-muted">No donation requests available.</p>
-    {% endif %}
+
+    <div id="loading-spinner" class="text-center my-4" style="display: none;">
+        <div class="spinner-border text-danger" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 </div>
-<script>
-    // Automatically remove flash messages after 5 seconds
-    setTimeout(function() {
-        let alerts = document.querySelectorAll('.alert');
-        alerts.forEach(alert => {
-            // Only remove alerts that are NOT inside the notification popup
-            if (!alert.closest('#notifPopup')) {
-                let bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        });
-    }, 5000);
-</script>
 
 
+
+<script src="{{ url_for('static', filename='news_feed.js') }}"></script> <!-- Your full logic moved here -->
+<div id="image-slider" class="image-slider">
+    <div id="slider-content" class="slider-content"></div>
+</div>
 {% endblock %}
-

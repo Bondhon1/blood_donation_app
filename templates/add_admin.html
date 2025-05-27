@@ -32,6 +32,7 @@
 
    
     <form action="{{ url_for('add_admin') }}" method="POST" onsubmit="return validateForm()">
+        {{ form.hidden_tag() }}
         <div class="form-group">
             <label>Username:</label>
             <input type="text" name="username" id="username" class="form-control" required>

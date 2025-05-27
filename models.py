@@ -106,9 +106,33 @@ class BloodRequest(db.Model):
             self.donors_assigned += 1
             if self.is_fulfilled:
                 self.status = "Fulfilled"
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "patient_name": self.patient_name,
+            "blood_group": self.blood_group,
+            "hospital_name": self.hospital_name,
+            "urgency_status": self.urgency_status,
+            "location": str(self.location) if self.location else "Unknown",
+
+            "amount_needed": self.amount_needed,
+            "reason": self.reason,
+            "images": self.images or [],
+            "status": self.status,
+            "upvotes": len(self.upvotes),  # ✅ Count instead of sending objects
+            "created_at": self.created_at.isoformat(),
+            "donors_assigned": self.donors_assigned or 0,
+            "user": {
+                "username": self.user.username,
+                "profile_picture": self.user.profile_picture
+            }
+        }
 
 
-class Admin(db.Model):  # Fix the typo here
+
+
+class Admin(db.Model):  
     admin_id = db.Column(db.Integer, primary_key=True)
     admin_username = db.Column(db.String(50), unique=True, nullable=False)
     admin_email = db.Column(db.String(120), unique=True, nullable=False)
@@ -170,6 +194,7 @@ class Reply(db.Model):
 
     user = db.relationship('User')
     comment = db.relationship('Comment', back_populates='replies')
+    likes = db.relationship('ReplyLike', backref='reply', lazy=True)  # ✅ Add this line
 
 Comment.replies = db.relationship('Reply', back_populates='comment', cascade='all, delete-orphan')
 

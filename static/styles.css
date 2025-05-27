@@ -298,7 +298,7 @@ button:hover {
     top: 0;
     left: 0;
     height: 60px; /* Adjusted height */
-    z-index: 999; /* Ensures navbar is on top of everything */
+    z-index: 1100; /* Ensures navbar is on top of everything */
 }
 .navbar .btn {
     font-size: 1.1rem;
@@ -1744,4 +1744,40 @@ html, body {
     background-color: rgba(255,0,0,0.8);
 }
 
+.comment-wrapper {
+    position: relative;
+  }
   
+  .comment-options {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: none;
+    cursor: pointer;
+  }
+  
+  .comment-wrapper:hover .comment-options {
+    display: block;
+  }
+  
+  .options-dropdown {
+    position: absolute;
+    right: 0;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 100;
+    display: none;
+  }
+  
+  .options-dropdown a {
+    display: block;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: #333;
+  }
+  
+  .options-dropdown a:hover {
+    background-color: #f0f0f0;
+  }  

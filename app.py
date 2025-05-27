@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
 from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike
-from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm
+from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm, AdminLoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -18,6 +18,7 @@ import uuid
 import json
 from PIL import Image
 from PIL import Image, ExifTags
+from flask_wtf.csrf import CSRFProtect
 
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
@@ -25,6 +26,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config.from_object(Config)
 db.init_app(app)
@@ -216,36 +218,102 @@ def news_feed(username):
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    # ✅ Reset notifications for a fresh session
+    # ✅ Handle notifications
     if 'notifications' not in session:
         session['notifications'] = []
 
     notifications = session['notifications']
-
-    # ✅ Remove email verification notification if already verified
     verification_message = "Please verify your email address. <a href='/resend_verification'>Resend</a>"
+
     if user.email_verified and verification_message in notifications:
         notifications.remove(verification_message)
-
-    # ✅ Add email verification notification only if needed
     if not user.email_verified and verification_message not in notifications:
         notifications.append(verification_message)
 
-    # ✅ Add new notifications (no duplicates)
     new_notifications = ["New blood request in your area!", "Urgent O- needed!"]
     for notif in new_notifications:
         if notif not in notifications:
             notifications.append(notif)
 
-    # ✅ Store only unique notifications in session
     session['notifications'] = list(set(notifications))
 
-    donation_requests = [
-        {"id": 1, "blood_group": "A+", "location": "Dhaka", "contact": "017xxxxxxxx", "posted_by": "John Doe"},
-        {"id": 2, "blood_group": "O-", "location": "Chittagong", "contact": "018xxxxxxxx", "posted_by": "Jane Smith"},
-    ]
+    # ✅ Prioritized BloodRequests Logic
+    LIMIT_COUNT = 10
 
-    return render_template('news_feed.html', username=username, user=user, donation_requests=donation_requests)
+    session_district = session.get('district')
+    session_division = session.get('division')
+
+    # Location string to match — example: "Dhaka, Dhaka"
+    location_str = f"{session_district}, {session_division}"
+
+    # Priority 1: Same district (exact match string)
+    priority1 = BloodRequest.query.filter(BloodRequest.location.ilike(f"%{session_district}%")).all()
+
+    # Priority 2: Same division but not district
+    priority2 = BloodRequest.query.filter(
+        BloodRequest.location.ilike(f"%{session_division}%"),
+        ~BloodRequest.location.ilike(f"%{session_district}%")
+    ).limit(LIMIT_COUNT).all()
+
+    # Priority 3: Urgent cases (excluding already fetched ones)
+    priority3 = BloodRequest.query.filter(
+        BloodRequest.urgency_status.ilike("High"),
+        ~BloodRequest.location.ilike(f"%{session_division}%")
+    ).limit(LIMIT_COUNT).all()
+
+    # Priority 4: All others
+    priority_ids = {req.id for req in priority1 + priority2 + priority3}
+    priority4 = BloodRequest.query.filter(~BloodRequest.id.in_(priority_ids)).limit(LIMIT_COUNT).all()
+
+    # Merge all priorities in order
+    sorted_requests = priority1 + priority2 + priority3 + priority4
+
+    return render_template(
+        'news_feed.html',
+        username=username,
+        user=user,
+        donation_requests=sorted_requests,
+        notifications=session['notifications']
+    )
+
+@app.route('/api/news_feed')
+def api_news_feed():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    session_district = session.get('district')
+    session_division = session.get('division')
+    if not session_district or not session_division:
+        return jsonify({"error": "Missing location information."}), 400
+
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 6))
+
+    # Priority logic as before...
+    LIMIT_COUNT = 10
+    location_str = f"{session_district}, {session_division}"
+
+    priority1 = BloodRequest.query.filter(BloodRequest.location.ilike(f"%{session_district}%")).all()
+    priority2 = BloodRequest.query.filter(
+        BloodRequest.location.ilike(f"%{session_division}%"),
+        ~BloodRequest.location.ilike(f"%{session_district}%")
+    ).limit(LIMIT_COUNT).all()
+    priority3 = BloodRequest.query.filter(
+        BloodRequest.urgency_status.ilike("High"),
+        ~BloodRequest.location.ilike(f"%{session_division}%")
+    ).limit(LIMIT_COUNT).all()
+
+    priority_ids = {req.id for req in priority1 + priority2 + priority3}
+    priority4 = BloodRequest.query.filter(~BloodRequest.id.in_(priority_ids)).limit(LIMIT_COUNT).all()
+
+    sorted_requests = priority1 + priority2 + priority3 + priority4
+    paginated = sorted_requests[offset:offset+limit]
+
+    return jsonify({
+        "requests": [r.to_dict() for r in paginated],
+        "has_more": offset + limit < len(sorted_requests)
+    })
+
 
 @app.route('/resend_verification')
 def resend_verification():
@@ -275,12 +343,31 @@ def profile(username):
     user = User.query.filter_by(username=username).first_or_404()
     donor = DonorApplication.query.filter_by(user_id=user.id).first()
     blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
+    
     divisions = Divisions.query.all()
-    form = BloodRequestForm()
-    donor_application_form = DonorApplicationForm()
 
-    return render_template('profile.html', user=user, blood_requests=blood_requests, divisions=divisions, form=form, donor_application_form=donor_application_form, donor=donor)
-
+    # Check if the session user is the same as the requested profile
+    if session.get("username") == username:
+        form = BloodRequestForm()
+        donor_application_form = DonorApplicationForm()
+        return render_template(
+            'profile.html',
+            user=user,
+            blood_requests=blood_requests,
+            divisions=divisions,
+            form=form,
+            donor_application_form=donor_application_form,
+            donor=donor
+        )
+    else:
+        # Show readonly version
+        return render_template(
+            'user_profile.html',
+            user=user,
+            blood_requests=blood_requests,
+            donor=donor
+        )
+    
 @app.route('/get_districts/<int:division_id>')
 def get_districts(division_id):
     districts = Districts.query.filter_by(division_id=division_id).all()
@@ -451,13 +538,19 @@ def new_blood_request():
         flash("User not found.", "danger")
         return redirect(url_for('index'))
 
+    donor = DonorApplication.query.filter_by(user_id=user.id).first()
+    donor_application_form = DonorApplicationForm()
+
     return render_template(
         'profile.html', 
         user=user,  
-        form=form,  
+        form=form,
+        donor_application_form=donor_application_form,
+        donor=donor,
         divisions=Divisions.query.all(), 
-        blood_requests=BloodRequest.query.filter_by(user_id=user.id).all()  
+        blood_requests=BloodRequest.query.filter_by(user_id=user.id).all()
     )
+
 @app.route('/load_past_requests')
 def load_past_requests():
     if 'user_id' not in session:
@@ -686,7 +779,8 @@ def get_comments(request_id):
             "image": reply.image if reply.image else None,
             "username": reply.user.username,
             "profile_picture": reply.user.profile_picture,
-            "created_at": reply.created_at.isoformat()
+            "created_at": reply.created_at.isoformat(),
+            "like_count": len(reply.commentlikereply) if hasattr(reply, 'commentlikereply') else len(reply.likes)  # fallback
         } for reply in comment.replies]
 
         result.append({
@@ -696,10 +790,12 @@ def get_comments(request_id):
             "image": comment.image if comment.image else None,
             "profile_picture": comment.user.profile_picture,
             "created_at": comment.created_at.isoformat(),
+            "like_count": len(comment.likes),
             "replies": replies_data
         })
 
     return jsonify({"comments": result})
+
 
 
 @app.route('/add_reply/<int:comment_id>', methods=['POST'])
@@ -755,23 +851,30 @@ def add_comment(request_id):
     return jsonify({"success": True})
 
 
-@app.route('/edit_comment/<int:comment_id>', methods=['PUT'])
-def edit_comment(comment_id):
-    comment = Comment.query.get(comment_id)
-    if comment.user_id != session.get('user_id'):
+@app.route('/like_comment/<int:comment_id>', methods=['POST'])
+def like_comment(comment_id):
+    if 'user_id' not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
-    comment.text = request.json["text"]
+    comment = Comment.query.get_or_404(comment_id)
+    user = current_user
+    if user in comment.liked_by:
+        comment.liked_by.remove(user)
+    else:
+        comment.liked_by.append(user)
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({'success': True, 'likes': len(comment.liked_by)})
 
-@app.route('/delete_comment/<int:comment_id>', methods=['DELETE'])
+@app.route('/delete_comment/<int:comment_id>', methods=['POST'])
 def delete_comment(comment_id):
-    comment = Comment.query.get(comment_id)
-    if comment.user_id != session.get('user_id'):
+    if 'user_id' not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
+    comment = Comment.query.get_or_404(comment_id)
+    if comment.user_id != current_user.id:
+        abort(403)
     db.session.delete(comment)
     db.session.commit()
-    return jsonify({"success": True})
+    return jsonify({'success': True})
+
 
 @app.route('/become_donor', methods=['POST'])
 def become_donor():
@@ -838,18 +941,28 @@ def update_donor_info():
     db.session.commit()
     return jsonify({"message": "Updated successfully"})
 
-
-
-
-@app.route("/admin_login")
+@app.route("/admin_login", methods=["GET", "POST"])
 def admin_login_page():
     secret_code = request.args.get("code")
-
-    # Check if the provided code matches the secret one
     if secret_code != Config.SECRET_ADMIN_CODE:
-        abort(404)  # Show a 404 error page
+        abort(404)
 
-    return render_template("admin_login.html")
+    form = AdminLoginForm()
+
+    if form.validate_on_submit():
+        username = form.username.data
+        password = form.password.data
+
+        admin = Admin.query.filter_by(admin_username=username).first()
+        if admin and admin.check_password(password):
+            session["admin_id"] = admin.admin_id
+            session['admin_username'] = admin.admin_username
+            session["is_admin"] = True
+            return redirect(url_for("admin_dashboard"))
+
+        return render_template("admin_login.html", form=form, error="Invalid credentials")
+
+    return render_template("admin_login.html", form=form)
 
 @app.route("/admin_login", methods=["POST"])
 def admin_login():
@@ -893,13 +1006,35 @@ def admin_dashboard():
         donor_applications=donor_applications,
         blood_requests=blood_requests
     )
-@app.route('/admin/add_admin')
+from forms import AddAdminForm
+
+@app.route('/admin/add_admin', methods=['GET', 'POST'])
 def admin_add_admin_page():
     if 'admin_id' not in session:
         flash("Unauthorized access.", "danger")
         return redirect(url_for('admin_login'))
-    
-    return render_template('add_admin.html')
+
+    form = AddAdminForm()
+
+    if form.validate_on_submit():
+        username = form.username.data
+        email = form.email.data
+        password = form.password.data
+
+        if Admin.query.filter_by(admin_username=username).first():
+            flash("Username already exists!", "danger")
+            return redirect(url_for('admin_dashboard'))
+
+        new_admin = Admin(admin_username=username, admin_email=email)
+        new_admin.set_password(password)  # Make sure you're hashing the password
+        db.session.add(new_admin)
+        db.session.commit()
+
+        flash("New admin added successfully!", "success")
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('add_admin.html', form=form)
+
 
 @app.route('/add_admin', methods=['POST'])
 def add_admin():

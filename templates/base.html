@@ -3,6 +3,9 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+        
+
         <title>{% block title %}Blood Donation System{% endblock %}</title>
     
         <!-- Favicon (Title Bar Logo) -->
@@ -12,7 +15,7 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-
+        
     
         <!-- Custom CSS -->
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
@@ -46,7 +49,7 @@
                     {% if session.get('user_id') or session.get('admin_username') %}
                     <div class="flex-grow-1 d-none d-sm-block">
                         <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
-                        <div id="searchResults" class="dropdown-popup"></div>
+                        <div id="searchResults" class="search-popup"></div>
                     </div>
                     {% endif %}
 
@@ -54,6 +57,7 @@
                     <div class="d-flex d-sm-none align-items-center ms-auto">
                         {% if session.get('user_id') or session.get('admin_username') %}
                             <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 120px;">
+                            <div id="searchResults" class="search-popup"></div>
                         {% endif %}
                         <button class="btn btn-outline-light btn-sm" id="mobileMenuToggle">
                             <i class="fas fa-bars"></i>
@@ -162,11 +166,47 @@
     
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Required for modal to work -->
+        <!-- Correct version for Bootstrap 5.3.3 -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+
         <script src="{{ url_for('static', filename='scripts.js') }}"></script>
     
         
         
-
+        <!-- Custom Modal -->
+<div id="customModal" class="custom-modal-overlay" style="display: none;">
+    <div class="custom-modal-box">
+      <h5 id="customModalTitle">Modal Title</h5>
+      <p id="customModalMessage">Modal Message</p>
+      
+      <!-- Optional input -->
+      <input type="text" id="customModalInput" class="form-control mt-2" style="display: none;" />
+  
+      <div class="modal-actions mt-3">
+        <button id="customModalOkBtn" class="btn btn-primary">OK</button>
+        <button id="customModalCancelBtn" class="btn btn-secondary">Cancel</button>
         
+      </div>
+    </div>
+  </div>
+   <div id="image-slider" class="image-slider">
+    <div id="slider-content" class="slider-content"></div>
+</div>
+
+  <div class="modal fade" id="postModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Blood Request Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="modalPostContent">
+          <!-- Full post (createPostHTML) will be injected here -->
+        </div>
+      </div>
+    </div>
+  </div>     
     </body>
 </html>

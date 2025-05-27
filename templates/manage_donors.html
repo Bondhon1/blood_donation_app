@@ -50,6 +50,7 @@
                 <td>
                     {% if application.status == 'Pending' %}
                     <form action="{{ url_for('approve_donor', application_id=application.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-success btn-sm">Approve</button>
                     </form>
                     {% else %}
