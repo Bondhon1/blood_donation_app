@@ -226,40 +226,48 @@ function getCSRFToken() {
 }
 
 function requestResponseFromDonor(requestId) {
-    if (!confirm("Are you sure you want to respond to this request?")) return;
+    
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+    showCustomModal({
+        title: "Confirm Donation",
+        message: "Are you sure you want to respond to this blood request?",
+        onConfirm: () => {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
 
-    fetch(`/donor_response/${requestId}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrfToken  // Flask-WTF looks for this header
-        },
-        body: JSON.stringify({}) // If your route expects data, pass it here
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Network response was not ok");
-
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("Invalid content-type");
+            fetch(`/donor_response/${requestId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrfToken
+                },
+                body: JSON.stringify({})
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Network response was not ok");
+                return res.json();
+            })
+            .then(data => {
+                if (data.status === "success") {
+                    showCustomModal({
+                        title: "Thank you!",
+                        message: "You've been assigned as a donor. We appreciate your help.",
+                        onConfirm: () => location.reload()
+                    });
+                } else {
+                    showCustomModal({
+                        title: "Notice",
+                        message: data.message
+                    });
+                }
+            })
+            .catch(err => {
+                console.error("Error:", err);
+                alert("Something went wrong. Try again later.");
+            });
         }
-        return res.json();
-    })
-    .then(data => {
-        if (data.status === "success") {
-            alert("Thank you! You've been assigned as a donor.");
-            location.reload();
-        } else {
-            alert(data.message);
-        }
-    })
-    .catch(err => {
-        console.error("Error:", err);
-        alert("Something went wrong. Try again later.");
     });
 }
+
 
 function checkFulfilled(request) {
     if (request.donors_assigned >= request.amount_needed) {

@@ -367,14 +367,13 @@ def handle_referral(referral_id, action):
     
     db.session.commit()
     return redirect(url_for('donor_referrals'))
+
 @app.route('/donor_response/<int:request_id>', methods=['POST'])
 def donor_response(request_id):
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
 
-    user_id = session['user_id']
-    user = db.session.get(User, user_id)
-
+    user = db.session.get(User, session['user_id'])
     if not user:
         return jsonify({"status": "error", "message": "User not found"}), 404
 
@@ -382,7 +381,7 @@ def donor_response(request_id):
     if not donor_app:
         return jsonify({"status": "error", "message": "Only approved donors can respond."}), 403
 
-    # ✅ Check if 90 days have passed since last donation
+    # Check 90-day interval
     last_donation = donor_app.last_donation_date
     if last_donation and (datetime.now(timezone.utc).date() - last_donation).days < 90:
         next_date = last_donation + timedelta(days=90)
@@ -398,35 +397,48 @@ def donor_response(request_id):
     if blood_request.is_fulfilled:
         return jsonify({"status": "error", "message": "This request is already fulfilled."})
 
-    # ✅ Assign donor
-    blood_request.assign_donor()
-    donor_app.last_donation_date = blood_request.required_date or datetime.now(timezone.utc).date()
+    # Check for duplicate donor assignment
+    already_responded = DonorResponse.query.filter_by(
+        donor_id=user.id, request_id=request_id
+    ).first()
+    if already_responded:
+        return jsonify({
+            "status": "error",
+            "message": "You have already responded to this request."
+        })
+
+    # Check blood group match
+    if user.blood_group != blood_request.blood_group:
+        return jsonify({
+            "status": "error",
+            "message": "Your blood group does not match the required blood group for this request."
+        })
 
     try:
-        # ✅ Create and add notification BEFORE final commit
-        creator = blood_request.user
-        donor_name = user.name or user.username
+        # Assign donor
+        blood_request.assign_donor()
+        donor_app.last_donation_date = blood_request.required_date or datetime.now(timezone.utc).date()
+
         # Create DonorResponse entry
         response = DonorResponse(donor_id=user.id, request_id=blood_request.id)
         db.session.add(response)
-        db.session.flush()  # So we can use response.id
+        db.session.flush()
 
-        # Create notification with URL
-        notif_msg = f"Donor {donor_name} has responded to your blood request for {blood_request.patient_name}."
+        # Notify creator
         notification = Notification(
-            recipient_id=creator.id,
+            recipient_id=blood_request.user.id,
             sender_id=user.id,
-            message=notif_msg,
-            link=url_for('view_donor_info', response_id=response.id),  # clickable link
+            message=f"Donor {user.name or user.username} has responded to your blood request for {blood_request.patient_name}.",
+            link=url_for('view_donor_info', response_id=response.id),
             is_read=False
         )
         db.session.add(notification)
-        db.session.commit()  # ✅ Commit all changes
-
+        db.session.commit()
 
         return jsonify({"status": "success", "message": "You have been assigned as a donor."})
     except Exception as e:
         db.session.rollback()
+        print("Error:", e)
         return jsonify({"status": "error", "message": "Something went wrong. Try again later."})
 
 
