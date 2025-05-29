@@ -598,3 +598,412 @@ function submitReply(commentId, requestId) {
         }
     });
 }
+function toggleOptionsMenu(postId) {
+    const menu = document.getElementById(`options-menu-${postId}`);
+    
+    // Hide all other menus
+    document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
+
+    // Toggle current menu
+    if (menu.style.display === 'block') {
+        menu.style.display = 'none';
+    } else {
+        menu.style.display = 'block';
+    }
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.post-options')) {
+        document.querySelectorAll('.options-menu').forEach(menu => menu.style.display = 'none');
+    }
+});
+function editPost(postId) {
+    
+    fetch(`/get_post/${postId}`)
+        .then(response => response.json())
+        .then(post => {
+            let imagesHTML = post.images.map(img => `
+                <div class="edit-img-box">
+                    <img src="/static/profile_pics/${img}" class="edit-post-img">
+                    <button class="remove-img-btn" onclick="removeImage('${img}')">X</button>
+                </div>
+            `).join("");
+
+            const editForm = `
+                <div id="editModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close" onclick="closeEditModal()">&times;</span>
+                        <h3>Edit Blood Request</h3>
+                        <label>Patient Name:</label>
+                        <input type="text" id="editPatientName" value="${post.patient_name || ''}">
+                        
+                        <label>Blood Group:</label>
+                        <select id="editBloodGroup">
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                        </select>
+
+                        <label>Number of Blood Bags:</label>
+                        <input type="number" id="editAmountNeeded" value="${post.amount_needed || 1}" min="1">
+                        
+                        <label>Hospital Name:</label>
+                        <input type="text" id="editHospitalName" value="${post.hospital_name || ''}">
+                        
+                        <label>Required Date & Time:</label>
+                        <input type="datetime-local" id="editRequiredDate" value="${post.required_date || ''}">
+                        
+                        <label>Urgency Status:</label>
+                        <select id="editUrgencyStatus">
+                            <option value="Critical">Critical</option>
+                            <option value="Urgent">Urgent</option>
+                            <option value="Normal">Normal</option>
+                        </select>
+                        
+                        <label>Reason for Request:</label>
+                        <textarea id="editReason">${post.reason || ''}</textarea>
+
+                        <label>Uploaded Images:</label>
+                        <div id="existingImages">${imagesHTML}</div>
+
+                        <label for="editImages" class="custom-file-upload">
+                        📷 Upload Images
+                        </label>
+                        <input type="file" id="editImages" name="images" multiple accept="image/*" style="display: none;">
+                        <div class="preview-container" id="editImagePreviews"></div>
+
+
+                        <button onclick="savePostEdit(${postId})">Save Changes</button>
+                        <button onclick="closeEditModal()">Cancel</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML("beforeend", editForm);
+            document.getElementById("editModal").style.display = "block";
+            setupImagePreview();
+            removedImages = []; // Reset when modal opens
+
+            // ✅ Set selected values explicitly after rendering
+            document.getElementById("editBloodGroup").value = post.blood_group || '';
+            document.getElementById("editUrgencyStatus").value = post.urgency_status || '';
+        });
+        function setupImagePreview() {
+            const editImageInput = document.getElementById("editImages");
+            const previewContainer = document.getElementById("editImagePreviews");
+
+            if (!editImageInput || !previewContainer) return;
+
+            let selectedFiles = [];
+
+            editImageInput.addEventListener("change", function () {
+                const newFiles = Array.from(editImageInput.files);
+
+                newFiles.forEach((file) => {
+                    // Avoid duplicates by filename (optional)
+                    if (selectedFiles.some(f => f.name === file.name)) return;
+
+                    selectedFiles.push(file);
+
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        const previewDiv = document.createElement("div");
+                        previewDiv.classList.add("image-preview");
+
+                        const img = document.createElement("img");
+                        img.src = e.target.result;
+
+                        const removeBtn = document.createElement("button");
+                        removeBtn.classList.add("remove-preview");
+                        removeBtn.innerHTML = "×";
+                        removeBtn.onclick = function () {
+                            // Remove this file from selectedFiles
+                            selectedFiles = selectedFiles.filter(f => f !== file);
+                            previewDiv.remove();
+
+                            // Update input files
+                            const dt = new DataTransfer();
+                            selectedFiles.forEach(f => dt.items.add(f));
+                            editImageInput.files = dt.files;
+                        };
+
+                        previewDiv.appendChild(img);
+                        previewDiv.appendChild(removeBtn);
+                        previewContainer.appendChild(previewDiv);
+                    };
+                    reader.readAsDataURL(file);
+                });
+
+                // Update input files with combined selection
+                const dt = new DataTransfer();
+                selectedFiles.forEach(f => dt.items.add(f));
+                editImageInput.files = dt.files;
+            });
+        }
+        
+    
+}
+
+
+// Function to remove an image from edit form
+let removedImages = [];
+
+function removeImage(imageName) {
+    removedImages.push(imageName);
+    document.querySelector(`img[src='/static/profile_pics/${imageName}']`).parentElement.remove();
+}
+function savePostEdit(postId) {
+    const updatedData = new FormData();
+    updatedData.append("patient_name", document.getElementById("editPatientName").value);
+    updatedData.append("blood_group", document.getElementById("editBloodGroup").value);
+    updatedData.append("amount_needed", document.getElementById("editAmountNeeded").value);
+    updatedData.append("hospital_name", document.getElementById("editHospitalName").value);
+    updatedData.append("required_date", document.getElementById("editRequiredDate").value);
+    updatedData.append("urgency_status", document.getElementById("editUrgencyStatus").value);
+    updatedData.append("reason", document.getElementById("editReason").value);
+    updatedData.append("removed_images", JSON.stringify(removedImages));
+
+    const images = document.getElementById("editImages").files;
+    for (let i = 0; i < images.length; i++) {
+        updatedData.append("images", images[i]);
+    }
+
+    const saveButton = document.querySelector("#editModal button[onclick^='savePostEdit']");
+    const originalText = saveButton.innerText;
+    saveButton.innerText = "Saving...";
+    saveButton.disabled = true;
+
+    fetch(`/edit_post/${postId}`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRFToken()
+        },
+        body: updatedData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showCustomModal({
+                title: "Success",
+                message: data.message,
+                onConfirm: () => {}
+            });
+
+            // ✅ Live update the post DOM
+            const postCard = document.querySelector(`.post-card[data-id="${postId}"]`);
+            if (postCard) {
+                postCard.querySelector(".post-body").innerHTML = `
+                    <p><strong>Patient Name:</strong> ${data.updated.patient_name}</p>
+                    <p><strong>Blood Group:</strong> ${data.updated.blood_group}</p>
+                    <p><strong>Hospital:</strong> ${data.updated.hospital_name}</p>
+                    <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(data.updated.urgency_status)}">${data.updated.urgency_status}</span></p>
+                    <p><strong>Blood Needed:</strong> ${data.updated.amount_needed} bag${data.updated.amount_needed > 1 ? 's' : ''} (${data.updated.amount_needed} donor${data.updated.amount_needed > 1 ? 's' : ''} needed)</p>
+                    <p>${data.updated.reason}</p>
+                    ${createImagesHTML(data.updated.images, postId)}
+                `;
+
+                postCard.setAttribute("data-images", JSON.stringify(data.updated.images));
+            }
+
+            // ✅ Update the modal inputs (optional, in case user opens it again)
+            document.getElementById("editPatientName").value = data.updated.patient_name;
+            document.getElementById("editBloodGroup").value = data.updated.blood_group;
+            document.getElementById("editAmountNeeded").value = data.updated.amount_needed;
+            document.getElementById("editHospitalName").value = data.updated.hospital_name;
+            document.getElementById("editRequiredDate").value = data.updated.required_date;
+            document.getElementById("editUrgencyStatus").value = data.updated.urgency_status;
+            document.getElementById("editReason").value = data.updated.reason;
+
+            // ✅ Update images in the modal preview
+            if (document.getElementById("existingImages")) {
+                const existingImages = document.getElementById("existingImages");
+                existingImages.innerHTML = data.updated.images.map(img => `
+                    <div class="edit-img-box">
+                        <img src="/static/profile_pics/${img}" class="edit-post-img">
+                        <button class="remove-img-btn" onclick="removeImage('${img}')">X</button>
+                    </div>
+                `).join("");
+            }
+
+            removedImages = [];  // Clear removed list
+            closeEditModal();
+        } else {
+            showCustomModal({
+                title: "Update Failed",
+                message: "Failed to update the post. ",
+                onConfirm: () => {}
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Update error:", error);
+        showCustomModal({
+            title: "Error",
+            message: "Something went wrong while saving the post.",
+            onConfirm: () => {}
+        });
+    })
+    .finally(() => {
+        saveButton.innerText = originalText;
+        saveButton.disabled = false;
+    });
+}
+function createImagesHTML(images, postId) {
+    const moreImages = images.length > 4 ? images.length - 4 : 0;
+    let html = `
+        <div class="post-images-container">
+            ${images.slice(0, 4).map((img, index) => `
+                <div class="post-img-box">
+                    <img src="/static/profile_pics/${img}" class="post-img" onclick="openSlider(${postId}, ${index})">
+                </div>
+            `).join('')}
+            ${moreImages > 0 ? `
+                <div class="post-img-box more-images" onclick="openSlider(${postId}, 0)">
+                    +${moreImages} more
+                </div>
+            ` : ""}
+        </div>
+    `;
+    return html;
+}
+function closeEditModal() {
+    const modal = document.getElementById("editModal");
+    if (modal) {
+        modal.remove();
+    }
+}
+function closeEditModal() {
+    document.getElementById("editModal").remove();
+}
+
+function deletePost(postId) {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+
+    fetch(`/delete_post/${postId}`, {
+        method: "DELETE",
+        headers: {
+            "X-CSRFToken": getCSRFToken()
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.message === "Post deleted successfully") {
+            showCustomModal({
+                title: "Success",
+                message: data.message,
+                onConfirm: () => {}
+            });
+            const postElement = document.querySelector(`.post-card[data-id='${postId}']`);
+            if (postElement) {
+                postElement.style.transition = "opacity 0.3s ease";
+                postElement.style.opacity = "0";
+                setTimeout(() => postElement.remove(), 300);
+            }
+        } else {
+            showCustomModal({
+                title: "Delete Failed",
+                message: data.message || "Failed to delete the post.",
+                onConfirm: () => {}
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Delete error:", error);
+        showCustomModal({
+            title: "Error",
+            message: "An error occurred while deleting the post.",
+            onConfirm: () => {}
+        });
+    });
+}
+
+function markDonorFound(postId) {
+    // Get current status and donor count from the DOM
+    const statusBar = document.querySelector(`.card[data-id="${postId}"] .status-bar`);
+    const donorText = document.getElementById(`assigned-donors-${postId}`).innerText;
+
+    // If all donors already assigned, just show alert and exit
+    if (donorText === "All Donors Assigned" || statusBar.classList.contains("donor-assigned")) {
+        showCustomModal({
+            title: "Already Fulfilled",
+            message: "All required donors have already been assigned for this request.",
+            onConfirm: () => {}
+        });
+        return;
+    }
+
+    // Otherwise, show input modal
+    showCustomModal({
+        title: "Donor Found",
+        message: "How many donors have you found?",
+        input: true,
+        inputPlaceholder: "Enter number of donors...",
+        onConfirm: (foundCount) => {
+            const count = parseInt(foundCount);
+
+            if (!count || count <= 0) {
+                showCustomModal({
+                    title: "Invalid Input",
+                    message: "Please enter a valid number greater than 0.",
+                    onConfirm: () => {}
+                });
+                return;
+            }
+
+            fetch(`/mark_donor_found/${postId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": getCSRFToken()
+                },
+                body: JSON.stringify({ found_count: count })
+            })
+            .then(async (response) => {
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || "Unknown error");
+                }
+
+                showCustomModal({
+                    title: "Success",
+                    message: data.message,
+                    onConfirm: () => {
+                        // ✅ Update UI
+                        document.getElementById(`assigned-donors-${postId}`).innerText = data.new_assigned;
+
+                        if (data.status === "Fulfilled") {
+                            statusBar.classList.add("donor-assigned");
+                        }
+                    }
+                });
+            })
+            .catch(err => {
+                console.error("🚨 AJAX Error:", err);
+                showCustomModal({
+                    title: "Error",
+                    message: err.message || "Something went wrong.",
+                    onConfirm: () => {}
+                });
+            });
+        }
+    });
+}
+
+// Automatically remove flash messages after 5 seconds
+    setTimeout(function() {
+        let alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            // Only remove alerts that are NOT inside the notification popup
+            if (!alert.closest('#notifPopup')) {
+                let bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }
+        });
+    }, 5000);

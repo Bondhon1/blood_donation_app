@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse
 from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm, AdminLoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 from flask import current_app
 import requests
 from geopy.distance import geodesic  # To calculate the closest location
-from datetime import datetime, timezone, UTC
+from datetime import datetime, timezone, UTC, timedelta
 from flask_login import current_user, login_required
 import uuid
 import json
@@ -213,60 +213,67 @@ def news_feed(username):
         flash("Please log in first.", "warning")
         return redirect(url_for('login'))
 
-    user = User.query.filter_by(id=session['user_id']).first()
+    user = User.query.get(session['user_id'])
     if not user:
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    # ✅ Handle notifications
-    if 'notifications' not in session:
-        session['notifications'] = []
+    # ✅ Fetch unread DB notifications
+    db_notifications = Notification.query.filter_by(
+        recipient_id=user.id, is_read=False
+    ).order_by(Notification.timestamp.desc()).all()
 
-    notifications = session['notifications']
-    verification_message = "Please verify your email address. <a href='/resend_verification'>Resend</a>"
+    notif_messages = [
+        {
+            "id": n.id,
+            "message": n.message,
+            "link": n.link
+        }
+        for n in db_notifications
+    ]
 
-    if user.email_verified and verification_message in notifications:
-        notifications.remove(verification_message)
-    if not user.email_verified and verification_message not in notifications:
-        notifications.append(verification_message)
 
-    new_notifications = ["New blood request in your area!", "Urgent O- needed!"]
-    for notif in new_notifications:
-        if notif not in notifications:
-            notifications.append(notif)
+    # Add non-database inline notifications
+    if not user.email_verified:
+        notif_messages.append({
+            "id": None,
+            "message": "Please verify your email address. <a href='/resend_verification'>Resend</a>",
+            "link": None
+        })
 
-    session['notifications'] = list(set(notifications))
+    ref_count = Referral.query.filter_by(referred_user_id=user.id, status='Pending').count()
+    if ref_count > 0:
+        notif_messages.append({
+            "id": None,
+            "message": f"You have {ref_count} donor referral(s) pending. <a href='/donor/referrals'>Review</a>",
+            "link": None
+        })
 
-    # ✅ Prioritized BloodRequests Logic
+    # ✅ Store in session for use in popup
+    session['notifications'] = notif_messages
+
+    # --- Blood Request Priority Logic ---
     LIMIT_COUNT = 10
-
     session_district = session.get('district')
     session_division = session.get('division')
 
-    # Location string to match — example: "Dhaka, Dhaka"
-    location_str = f"{session_district}, {session_division}"
-
-    # Priority 1: Same district (exact match string)
     priority1 = BloodRequest.query.filter(BloodRequest.location.ilike(f"%{session_district}%")).all()
-
-    # Priority 2: Same division but not district
     priority2 = BloodRequest.query.filter(
         BloodRequest.location.ilike(f"%{session_division}%"),
         ~BloodRequest.location.ilike(f"%{session_district}%")
     ).limit(LIMIT_COUNT).all()
-
-    # Priority 3: Urgent cases (excluding already fetched ones)
     priority3 = BloodRequest.query.filter(
         BloodRequest.urgency_status.ilike("High"),
         ~BloodRequest.location.ilike(f"%{session_division}%")
     ).limit(LIMIT_COUNT).all()
 
-    # Priority 4: All others
     priority_ids = {req.id for req in priority1 + priority2 + priority3}
     priority4 = BloodRequest.query.filter(~BloodRequest.id.in_(priority_ids)).limit(LIMIT_COUNT).all()
 
-    # Merge all priorities in order
     sorted_requests = priority1 + priority2 + priority3 + priority4
+
+    donor_app = DonorApplication.query.filter_by(user_id=user.id, status='Approved').first()
+    session['is_donor'] = donor_app is not None
 
     return render_template(
         'news_feed.html',
@@ -275,6 +282,7 @@ def news_feed(username):
         donation_requests=sorted_requests,
         notifications=session['notifications']
     )
+
 
 @app.route('/api/news_feed')
 def api_news_feed():
@@ -314,6 +322,136 @@ def api_news_feed():
         "has_more": offset + limit < len(sorted_requests)
     })
 
+@app.route('/admin/reports')
+def admin_reports():
+    if 'user_id' not in session:
+        flash("Login required", "warning")
+        return redirect(url_for('login'))
+
+    user = User.query.get(session['user_id'])
+    if not user or not user.is_admin:
+        flash("Access denied", "danger")
+        return redirect(url_for('news_feed', username=session.get('username')))
+
+    reports = Report.query.order_by(Report.created_at.desc()).all()
+    return render_template('admin_reports.html', reports=reports)
+
+@app.route('/donor/referrals')
+def donor_referrals():
+    if 'user_id' not in session:
+        flash("Login required", "warning")
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    referrals = Referral.query.filter_by(referred_user_id=user_id, status='Pending').all()
+    return render_template('referral_notifications.html', referrals=referrals)
+
+@app.route('/referral/<int:referral_id>/<action>')
+def handle_referral(referral_id, action):
+    if 'user_id' not in session:
+        flash("Login required", "warning")
+        return redirect(url_for('login'))
+
+    referral = Referral.query.get(referral_id)
+    if not referral or referral.referred_user_id != session['user_id']:
+        flash("Unauthorized action", "danger")
+        return redirect(url_for('donor_referrals'))
+
+    if action == 'accept':
+        referral.status = 'Accepted'
+        flash("Referral accepted!", "success")
+        # Optionally: auto-create donor application, notify original referrer, etc.
+    elif action == 'reject':
+        referral.status = 'Rejected'
+        flash("Referral rejected", "info")
+    
+    db.session.commit()
+    return redirect(url_for('donor_referrals'))
+@app.route('/donor_response/<int:request_id>', methods=['POST'])
+def donor_response(request_id):
+    if 'user_id' not in session:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+
+    user_id = session['user_id']
+    user = db.session.get(User, user_id)
+
+    if not user:
+        return jsonify({"status": "error", "message": "User not found"}), 404
+
+    donor_app = DonorApplication.query.filter_by(user_id=user.id, status='Approved').first()
+    if not donor_app:
+        return jsonify({"status": "error", "message": "Only approved donors can respond."}), 403
+
+    # ✅ Check if 90 days have passed since last donation
+    last_donation = donor_app.last_donation_date
+    if last_donation and (datetime.now(timezone.utc).date() - last_donation).days < 90:
+        next_date = last_donation + timedelta(days=90)
+        return jsonify({
+            "status": "error",
+            "message": f"You can donate again after {next_date.strftime('%Y-%m-%d')}."
+        })
+
+    blood_request = db.session.get(BloodRequest, request_id)
+    if not blood_request:
+        return jsonify({"status": "error", "message": "Request not found"}), 404
+
+    if blood_request.is_fulfilled:
+        return jsonify({"status": "error", "message": "This request is already fulfilled."})
+
+    # ✅ Assign donor
+    blood_request.assign_donor()
+    donor_app.last_donation_date = blood_request.required_date or datetime.now(timezone.utc).date()
+
+    try:
+        # ✅ Create and add notification BEFORE final commit
+        creator = blood_request.user
+        donor_name = user.name or user.username
+        # Create DonorResponse entry
+        response = DonorResponse(donor_id=user.id, request_id=blood_request.id)
+        db.session.add(response)
+        db.session.flush()  # So we can use response.id
+
+        # Create notification with URL
+        notif_msg = f"Donor {donor_name} has responded to your blood request for {blood_request.patient_name}."
+        notification = Notification(
+            recipient_id=creator.id,
+            sender_id=user.id,
+            message=notif_msg,
+            link=url_for('view_donor_info', response_id=response.id),  # clickable link
+            is_read=False
+        )
+        db.session.add(notification)
+        db.session.commit()  # ✅ Commit all changes
+
+
+        return jsonify({"status": "success", "message": "You have been assigned as a donor."})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "Something went wrong. Try again later."})
+
+
+@app.route('/view_donor/<int:response_id>')
+def view_donor_info(response_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    response = db.session.get(DonorResponse, response_id)
+    if not response:
+        return "Response not found", 404
+
+    # Optional: ensure only request owner can view
+    if session['user_id'] != response.request.user_id:
+        return "Unauthorized", 403
+
+    # Mark notification as read (if you want to do it here)
+    notif_id = request.args.get('notif_id')
+    if notif_id:
+        notif = Notification.query.filter_by(id=notif_id, recipient_id=session['user_id']).first()
+        if notif:
+            notif.is_read = True
+            db.session.commit()
+
+    return render_template('donor_info.html', donor=response.donor, request=response.request)
 
 @app.route('/resend_verification')
 def resend_verification():
@@ -993,19 +1131,27 @@ def admin_dashboard():
         flash("Admin not found.", "danger")
         return redirect(url_for('admin_login'))
 
-    admins = Admin.query.all()  # Fetch all admins
-    users = User.query.all()  # Fetch all users
-    donor_applications = DonorApplication.query.all()  # Fetch all pending donor applications
-    blood_requests = BloodRequest.query.all()  # Fetch all blood requests
+    # Admin notifications
+    admin_notifications = []
+    report_count = Report.query.count()
+    if report_count > 0:
+        admin_notifications.append(f"You have {report_count} reports to review. <a href='/admin/reports'>View</a>")
+
+    donor_applications = DonorApplication.query.all()
+    pending_apps = [app for app in donor_applications if app.status == 'Pending']
+    if pending_apps:
+        admin_notifications.append(f"{len(pending_apps)} donor applications are pending approval.")
 
     return render_template(
         "admin_dashboard.html",
         admin=admin,
-        admins=admins,
-        users=users,
+        admins=Admin.query.all(),
+        users=User.query.all(),
         donor_applications=donor_applications,
-        blood_requests=blood_requests
+        blood_requests=BloodRequest.query.all(),
+        notifications=admin_notifications
     )
+
 from forms import AddAdminForm
 
 @app.route('/admin/add_admin', methods=['GET', 'POST'])

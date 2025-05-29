@@ -334,13 +334,13 @@ button:hover {
     top: 50px;
     right: 10px;
     background: var(--dropdown-bg);
-    width: 200px;
+    width: auto;
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
     padding: 10px;
     border-radius: 5px;
     z-index: 1050; /* Ensures it stays above buttons */
     pointer-events: auto; /* Allows clicking */
-    color: var(--dropdown-text);
+    color: black;
     transition: background 0.3s ease, color 0.3s ease;
 }
 .dropdown-popup.show {
@@ -362,10 +362,10 @@ button:hover {
     display: block;
     padding: 5px;
     text-decoration: none;
-    color: black;
+    color: black!important;
 }
 .dropdown-popup a:hover {
-    background: #ddd;
+    background: #364dd4;
 }
 /* 🌙 Fix Dropdown Text & Hover in Dark Mode */
 .dark-mode .dropdown-popup {
@@ -1781,3 +1781,8 @@ html, body {
   .options-dropdown a:hover {
     background-color: #f0f0f0;
   }  
+.fulfilled {
+    opacity: 0.5;
+    pointer-events: none;
+    border: 2px solid #28a745;
+}

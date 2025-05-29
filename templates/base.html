@@ -106,7 +106,13 @@
                                             <div class="notifications-container">
                                                 {% for notification in session['notifications'] %}
                                                     <div class="alert alert-info alert-dismissible fade show">
-                                                        {{ notification | safe }}
+                                                        {% if notification.link %}
+                                                            <a href="{{ notification.link }}?notif_id={{ notification.id }}" class="text-decoration-none">
+                                                                {{ notification.message }}
+                                                            </a>
+                                                        {% else %}
+                                                            {{ notification.message }}
+                                                        {% endif %}
                                                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                                                     </div>
                                                 {% endfor %}
@@ -114,6 +120,7 @@
                                         {% else %}
                                             <p>No new notifications</p>
                                         {% endif %}
+
                                     </div>
                                 </li>
     
@@ -209,4 +216,5 @@
     </div>
   </div>     
     </body>
+    
 </html>

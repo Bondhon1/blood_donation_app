@@ -1,3 +1,4 @@
+
 let offset = 0;
 const limit = 6;
 let isLoading = false;
@@ -61,8 +62,7 @@ function getUrgencyClass(status) {
 }
 
 function createPostHTML(request) {
-    console.log("Location:", request.location);
-
+    console.log("Current User:", currentUser.username, "Is Donor:", currentUser.is_donor);
     let images = [];
     if (typeof request.images === "string" && request.images.trim() !== "") {
         images = request.images.split(",").map(img => img.trim()).filter(img => img !== "");
@@ -94,6 +94,29 @@ function createPostHTML(request) {
         `;
     }
 
+    // 🧠 Construct options menu
+    let optionsMenuHTML = "";
+    if (currentUser.username === request.user.username) {
+        optionsMenuHTML = `
+            <button onclick="editPost(${request.id})"><i class="fas fa-edit"></i> Edit</button>
+            <button onclick="deletePost(${request.id})"><i class="fas fa-trash"></i> Delete</button>
+            <button onclick="markDonorFound(${request.id})"><i class="fas fa-check"></i> Donor Found</button>
+        `;
+    } else {
+        if (currentUser.is_donor) {
+            optionsMenuHTML = `
+                <button onclick="reportPost(${request.id})"><i class="fas fa-flag"></i> Report to Admin</button>
+                <button onclick="requestResponseFromDonor(${request.id})"><i class="fas fa-hands-helping"></i> Request Response</button>
+                <button onclick="referDonor(${request.id})"><i class="fas fa-user-plus"></i> Refer a Donor</button>
+            `;
+        } else {
+            optionsMenuHTML = `
+                <button onclick="reportPost(${request.id})"><i class="fas fa-flag"></i> Report to Admin</button>
+                <button onclick="referDonor(${request.id})"><i class="fas fa-user-plus"></i> Refer a Donor</button>
+            `;
+        }
+    }
+
     return `
         <div class="card shadow-sm post-card mb-3" data-id="${request.id}" data-images='${JSON.stringify(images)}'>
             <div class="post-options">
@@ -101,9 +124,7 @@ function createPostHTML(request) {
                     <i class="fas fa-ellipsis-v"></i>
                 </button>
                 <div class="options-menu" id="options-menu-${request.id}">
-                    <button onclick="editPost(${request.id})"><i class="fas fa-edit"></i> Edit</button>
-                    <button onclick="deletePost(${request.id})"><i class="fas fa-trash"></i> Delete</button>
-                    <button onclick="markDonorFound(${request.id})"><i class="fas fa-check"></i> Donor Found</button>
+                    ${optionsMenuHTML}
                 </div>
             </div>
             <div class="post-header d-flex align-items-center">
@@ -120,7 +141,6 @@ function createPostHTML(request) {
                 <p><strong>Blood Group:</strong> ${request.blood_group}</p>
                 <p><strong>Hospital:</strong> ${request.hospital_name}</p>
                 <p><strong>Location:</strong> ${request.location}</p>
-                
                 <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
                 <p><strong>Blood Needed:</strong> ${request.amount_needed} bag${request.amount_needed > 1 ? 's' : ''}</p>
                 <p>${request.reason}</p>
@@ -143,6 +163,8 @@ function createPostHTML(request) {
         </div>
     `;
 }
+
+
 function convertToUserTime(utcString) {
     const utcFixed = utcString.endsWith("Z") ? utcString : utcString + "Z";
     const date = new Date(utcFixed);
@@ -203,5 +225,46 @@ function getCSRFToken() {
     return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 }
 
+function requestResponseFromDonor(requestId) {
+    if (!confirm("Are you sure you want to respond to this request?")) return;
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+
+    fetch(`/donor_response/${requestId}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken  // Flask-WTF looks for this header
+        },
+        body: JSON.stringify({}) // If your route expects data, pass it here
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Network response was not ok");
+
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid content-type");
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.status === "success") {
+            alert("Thank you! You've been assigned as a donor.");
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => {
+        console.error("Error:", err);
+        alert("Something went wrong. Try again later.");
+    });
+}
+
+function checkFulfilled(request) {
+    if (request.donors_assigned >= request.amount_needed) {
+        document.getElementById(`request-${request.id}`).classList.add("fulfilled");
+    }
+}
 
 

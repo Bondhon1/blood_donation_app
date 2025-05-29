@@ -29,7 +29,8 @@ class User(db.Model):
     cover_photo = db.Column(db.String(255), nullable=True, default="default_cover.jpg")
 
     # ✅ Relationship: User has multiple blood requests
-    blood_requests = db.relationship('BloodRequest', backref='user', lazy=True)
+    blood_requests = db.relationship('BloodRequest', backref='user', lazy=True, cascade='all, delete')
+
     # Relationships
     division = db.relationship('Divisions', backref='users', lazy=True)
     district = db.relationship('Districts', backref='users', lazy=True)
@@ -235,4 +236,39 @@ class DonorApplication(db.Model):
 
     user = db.relationship('User', backref=db.backref('donor_application', uselist=False))
 
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    reported_by = db.Column(db.Integer, db.ForeignKey('user.id'))
+    post_id = db.Column(db.Integer)
+    reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Referral(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    referred_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    referrer_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    status = db.Column(db.String(50), default='Pending')  # Accepted / Rejected
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    message = db.Column(db.String(255), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    is_read = db.Column(db.Boolean, default=False)
+    link = db.Column(db.String(255), nullable=True)  # Optional link for more details
+
+    recipient = db.relationship('User', foreign_keys=[recipient_id], backref='received_notifications')
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_notifications')
+
+class DonorResponse(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    donor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    request_id = db.Column(db.Integer, db.ForeignKey('blood_request.id'), nullable=False)
+    responded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    donor = db.relationship('User', backref='responses')
+    request = db.relationship('BloodRequest', backref='donor_responses')
 

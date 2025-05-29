@@ -49,6 +49,17 @@
     </div>
 </div>
 
+<script>
+const currentUser = {
+    username: "{{ user.username }}",
+    is_donor: {{ 'true' if user.donor_application and user.donor_application.status == 'Approved' else 'false' }}
+};
+
+
+</script>
+
+
+
 
 
 <script src="{{ url_for('static', filename='news_feed.js') }}"></script> <!-- Your full logic moved here -->
