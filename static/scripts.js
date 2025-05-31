@@ -807,6 +807,12 @@ function savePostEdit(postId) {
                     <p>${data.updated.reason}</p>
                     ${createImagesHTML(data.updated.images, postId)}
                 `;
+                // ✅ Update donor status display
+                const donorStatusElement = document.getElementById(`assigned-donors-${postId}`);
+                if (donorStatusElement) {
+                    donorStatusElement.innerText = data.updated.donor_status;
+                    donorStatusElement.parentElement.classList.toggle("donor-assigned", data.updated.status === "Fulfilled");
+                }
 
                 postCard.setAttribute("data-images", JSON.stringify(data.updated.images));
             }

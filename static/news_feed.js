@@ -107,12 +107,19 @@ function createPostHTML(request) {
             optionsMenuHTML = `
                 <button onclick="reportPost(${request.id})"><i class="fas fa-flag"></i> Report to Admin</button>
                 <button onclick="requestResponseFromDonor(${request.id})"><i class="fas fa-hands-helping"></i> Request Response</button>
-                <button onclick="referDonor(${request.id})"><i class="fas fa-user-plus"></i> Refer a Donor</button>
+                <!-- Button in blood request card -->
+                <button onclick="openReferDonorModal(${request.id})">
+                <i class="fas fa-user-plus"></i> Refer a Donor
+                </button>
+
             `;
         } else {
             optionsMenuHTML = `
                 <button onclick="reportPost(${request.id})"><i class="fas fa-flag"></i> Report to Admin</button>
-                <button onclick="referDonor(${request.id})"><i class="fas fa-user-plus"></i> Refer a Donor</button>
+                <!-- Button in blood request card -->
+                <button onclick="openReferDonorModal(${request.id})">
+                <i class="fas fa-user-plus"></i> Refer a Donor
+                </button>
             `;
         }
     }
@@ -177,6 +184,75 @@ function convertToUserTime(utcString) {
     });
 }
 
+let selectedRequestId = null;
+let selectedDonorId = null;
+
+function openReferDonorModal(requestId) {
+  selectedRequestId = requestId;
+  document.getElementById("referDonorModal").style.display = "block";
+  document.getElementById("donorSearchResults").innerHTML = "";
+}
+
+function closeReferDonorModal() {
+  document.getElementById("referDonorModal").style.display = "none";
+  selectedDonorId = null;
+}
+
+function searchDonors() {
+  const query = document.getElementById("donorSearchInput").value;
+  if (!query) return;
+
+  fetch(`/api/search_donors?query=${encodeURIComponent(query)}&request_id=${selectedRequestId}`)
+    .then(response => response.json()) // 🔥 parse JSON properly here
+    .then(data => {
+      console.log("Donor Search Results:", data);
+      const container = document.getElementById("donorSearchResults");
+      if (!data.results || data.results.length === 0) {
+          container.innerHTML = "<div>No donors found.</div>";
+          return;
+      }
+      container.innerHTML = data.results.map(d => `
+        <div class="donor-card" data-id="${d.id}" onclick="selectDonor(${d.id})">
+            <img src="/static/profile_pics/${d.profile_picture}" width="30"> 
+            <b>${d.name || d.username}</b> - ${d.blood_group}
+            <small>Last donation: ${d.last_donation_date || 'N/A'}</small>
+        </div>
+        `).join("");
+
+    })
+    .catch(error => {
+      console.error("Error fetching donors:", error);
+    });
+}
+
+
+function selectDonor(donorId) {
+  selectedDonorId = donorId;
+  document.querySelectorAll(".donor-card").forEach(el => el.classList.remove("selected"));
+  const selectedCard = document.querySelector(`.donor-card[data-id="${donorId}"]`);
+  if (selectedCard) {
+    selectedCard.classList.add("selected");
+  }
+}
+
+
+function submitDonorReferral() {
+  if (!selectedDonorId || !selectedRequestId) return;
+
+  fetch(`/api/refer_donor`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json',
+        'X-CSRFToken': getCSRFToken()
+     },
+    body: JSON.stringify({ donor_id: selectedDonorId, request_id: selectedRequestId })
+  })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message);
+      closeReferDonorModal();
+    });
+}
+
 function upvotePost(postId) {
     fetch(`/upvote_request/${postId}`, {
         method: 'POST',
@@ -226,8 +302,6 @@ function getCSRFToken() {
 }
 
 function requestResponseFromDonor(requestId) {
-    
-
     showCustomModal({
         title: "Confirm Donation",
         message: "Are you sure you want to respond to this blood request?",
@@ -248,11 +322,35 @@ function requestResponseFromDonor(requestId) {
             })
             .then(data => {
                 if (data.status === "success") {
+                    // ✅ Update donor status UI
+                    const statusText = data.donors_assigned >= data.amount_needed
+                        ? "All Donors Assigned"
+                        : `${data.donors_assigned} out of ${data.amount_needed} Donors Assigned`;
+
+                    const statusElem = document.getElementById(`assigned-donors-${requestId}`);
+                    if (statusElem) {
+                        statusElem.textContent = statusText;
+                    }
+
+                    // ✅ Optional: mark card as fulfilled
+                    if (data.donors_assigned >= data.amount_needed) {
+                        document.getElementById(`request-${requestId}`)?.classList.add("fulfilled");
+                    }
+
+                    // ✅ Optional: disable or change the "Request Response" button
+                    const optionsMenu = document.getElementById(`options-menu-${requestId}`);
+                    if (optionsMenu) {
+                        optionsMenu.innerHTML = `
+                            <button disabled><i class="fas fa-check-circle"></i> You responded</button>
+                        `;
+                    }
+
+                    // ✅ Show thank you modal
                     showCustomModal({
                         title: "Thank you!",
-                        message: "You've been assigned as a donor. We appreciate your help.",
-                        onConfirm: () => location.reload()
+                        message: data.message
                     });
+
                 } else {
                     showCustomModal({
                         title: "Notice",
@@ -269,10 +367,38 @@ function requestResponseFromDonor(requestId) {
 }
 
 
+
+
 function checkFulfilled(request) {
     if (request.donors_assigned >= request.amount_needed) {
         document.getElementById(`request-${request.id}`).classList.add("fulfilled");
     }
 }
 
+function reportPost(requestId) {
+  showCustomModal({
+    title: "Report Blood Request",
+    message: "Are you sure you want to report this blood request to the admin?",
+    onConfirm: () => {
+      const csrfToken = getCSRFToken();
+
+      fetch('/api/report_post', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ request_id: requestId })
+      })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+      })
+      .catch(err => {
+        console.error("Error reporting post:", err);
+        alert("Something went wrong.");
+      });
+    }
+  });
+}
 

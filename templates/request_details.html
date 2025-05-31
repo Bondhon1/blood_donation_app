@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, msg in messages %}
+      <div class="alert alert-{{ category }}">{{ msg }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<div class="card p-4 mb-4">
+  <h2>Blood Request Details</h2>
+  <p><strong>Patient Name:</strong> {{ request_obj.patient_name }}</p>
+  <p><strong>Blood Group:</strong> {{ request_obj.blood_group }}</p>
+  <p><strong>Required Date:</strong> {{ request_obj.required_date.strftime('%Y-%m-%d') }}</p>
+  <p><strong>Amount Needed:</strong> {{ request_obj.amount_needed }} bags</p>
+  <p><strong>Hospital:</strong> {{ request_obj.hospital_name }}</p>
+  <p><strong>Urgency:</strong> {{ request_obj.urgency }}</p>
+  <p><strong>Reason:</strong> {{ request_obj.reason }}</p>
+  <p><strong>Location:</strong> {{ request_obj.location }}</p>
+</div>
+
+{% if referral %}
+  <div class="card p-3">
+    <p><strong>Your Referral Status:</strong> {{ referral.status }}</p>
+
+    {% if referral.status == "Pending" %}
+    <form method="post" action="{{ url_for('respond_referral', request_id=request_obj.id, action='accept') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-success">Accept</button>
+    </form>
+    <form method="post" action="{{ url_for('respond_referral', request_id=request_obj.id, action='reject') }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-danger">Reject</button>
+    </form>
+    {% endif %}
+
+  </div>
+{% endif %}
+
+{% endblock %}

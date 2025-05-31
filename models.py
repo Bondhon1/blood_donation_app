@@ -74,6 +74,8 @@ class BloodRequest(db.Model):
     status = db.Column(db.String(20), default="Open")  # New status field
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(UTC))
     upvote_count = db.Column(db.Integer, default=0)  # ✅ New column to store upvotes
+    donor_responses = db.relationship("DonorResponse", cascade="all, delete-orphan", back_populates="blood_request")
+
     upvotes = db.relationship(
         'BloodRequestUpvote',
         back_populates='blood_request',
@@ -246,21 +248,26 @@ class Report(db.Model):
 
 class Referral(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    referred_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    referrer_user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    request_id = db.Column(db.Integer, db.ForeignKey('blood_request.id'), nullable=False)
+    donor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String(50), default='Pending')  # Accepted / Rejected
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    referred_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    donor = db.relationship('User', foreign_keys=[donor_id])
+    blood_request = db.relationship('BloodRequest', foreign_keys=[request_id])
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    recipient_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     sender_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    admin_recipient_id = db.Column(db.Integer, db.ForeignKey('admin.admin_id'), nullable=True)
     message = db.Column(db.String(255), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False)
     link = db.Column(db.String(255), nullable=True)  # Optional link for more details
 
     recipient = db.relationship('User', foreign_keys=[recipient_id], backref='received_notifications')
+    admin_recipient = db.relationship('Admin', foreign_keys=[admin_recipient_id], backref='admin_notifications')
     sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_notifications')
 
 class DonorResponse(db.Model):
@@ -270,5 +277,5 @@ class DonorResponse(db.Model):
     responded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     donor = db.relationship('User', backref='responses')
-    request = db.relationship('BloodRequest', backref='donor_responses')
+    blood_request = db.relationship('BloodRequest', back_populates='donor_responses')
 

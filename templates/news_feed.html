@@ -66,4 +66,14 @@ const currentUser = {
 <div id="image-slider" class="image-slider">
     <div id="slider-content" class="slider-content"></div>
 </div>
+<div id="referDonorModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <span class="close" onclick="closeReferDonorModal()">&times;</span>
+    <h3>Refer a Donor</h3>
+    <input type="text" id="donorSearchInput" placeholder="Search by name, username, or blood group" oninput="searchDonors()">
+    <div id="donorSearchResults"></div>
+    <button onclick="submitDonorReferral()">Send Referral</button>
+  </div>
+</div>
+
 {% endblock %}

@@ -1786,3 +1786,7 @@ html, body {
     pointer-events: none;
     border: 2px solid #28a745;
 }
+.donor-card.selected {
+  background-color: #e0f7fa;
+  border: 2px solid #0097a7;
+}

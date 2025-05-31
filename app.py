@@ -241,13 +241,7 @@ def news_feed(username):
             "link": None
         })
 
-    ref_count = Referral.query.filter_by(referred_user_id=user.id, status='Pending').count()
-    if ref_count > 0:
-        notif_messages.append({
-            "id": None,
-            "message": f"You have {ref_count} donor referral(s) pending. <a href='/donor/referrals'>Review</a>",
-            "link": None
-        })
+ 
 
     # ✅ Store in session for use in popup
     session['notifications'] = notif_messages
@@ -336,15 +330,7 @@ def admin_reports():
     reports = Report.query.order_by(Report.created_at.desc()).all()
     return render_template('admin_reports.html', reports=reports)
 
-@app.route('/donor/referrals')
-def donor_referrals():
-    if 'user_id' not in session:
-        flash("Login required", "warning")
-        return redirect(url_for('login'))
 
-    user_id = session['user_id']
-    referrals = Referral.query.filter_by(referred_user_id=user_id, status='Pending').all()
-    return render_template('referral_notifications.html', referrals=referrals)
 
 @app.route('/referral/<int:referral_id>/<action>')
 def handle_referral(referral_id, action):
@@ -435,7 +421,13 @@ def donor_response(request_id):
         db.session.add(notification)
         db.session.commit()
 
-        return jsonify({"status": "success", "message": "You have been assigned as a donor."})
+        return jsonify({
+            "status": "success",
+            "message": "You have been assigned as a donor.",
+            "donors_assigned": blood_request.donors_assigned,
+            "amount_needed": blood_request.amount_needed
+        })
+
     except Exception as e:
         db.session.rollback()
         print("Error:", e)
@@ -774,19 +766,25 @@ def edit_post(post_id):
     # Update text fields
     post.patient_name = request.form["patient_name"]
     post.blood_group = request.form["blood_group"]
-    post.amount_needed = request.form["amount_needed"]
+    post.amount_needed = float(request.form["amount_needed"])
     post.hospital_name = request.form["hospital_name"]
     post.required_date = request.form["required_date"]
     post.urgency_status = request.form["urgency_status"]
     post.reason = request.form["reason"]
 
+    # ✅ Update status based on new amount_needed vs. donors_assigned
+    if post.donors_assigned >= post.amount_needed:
+        post.status = "Fulfilled"
+    else:
+        post.status = "Open"
+
+    # Handle removed images
     if removed_images:
         removed_images = json.loads(removed_images)
         image_list = post.images.split(',') if post.images else []
         for img in removed_images:
             if img in image_list:
                 image_list.remove(img)
-                # Optional: remove file from disk
                 image_path = os.path.join(app.config['UPLOAD_FOLDER'], img)
                 if os.path.exists(image_path):
                     os.remove(image_path)
@@ -804,14 +802,20 @@ def edit_post(post_id):
                 resize_image(filepath)
                 new_filenames.append(filename)
 
-        # Append new images to existing ones
         if new_filenames:
             old = post.images.split(",") if post.images else []
             post.images = ",".join(old + new_filenames)
 
     db.session.commit()
 
-    # Return updated content for frontend
+    # ✅ Determine donor status text
+    if post.donors_assigned == 0:
+        donor_status = "No donors yet"
+    elif post.donors_assigned >= post.amount_needed:
+        donor_status = "All donors assigned"
+    else:
+        donor_status = f"{post.donors_assigned} out of {int(post.amount_needed)} Donors Assigned"
+
     return jsonify({
         "success": True,
         "message": "Post updated successfully",
@@ -823,9 +827,212 @@ def edit_post(post_id):
             "amount_needed": post.amount_needed,
             "hospital_name": post.hospital_name,
             "urgency_status": post.urgency_status,
-            "images": post.images.split(",") if post.images else []
+            "images": post.images.split(",") if post.images else [],
+            "status": post.status,
+            "donors_assigned": post.donors_assigned,
+            "donor_status": donor_status
         }
     })
+
+# Helper: Get current user from session
+def get_current_user():
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return User.query.get(user_id)
+
+@app.route("/api/search_donors")
+def search_donors():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    query = request.args.get("query", "").strip()
+    request_id = request.args.get("request_id")
+
+    if not query or not request_id:
+        return jsonify(results=[])
+
+    blood_request = BloodRequest.query.get_or_404(request_id)
+
+    eligible_donors = db.session.query(User).join(DonorApplication).filter(
+        User.blood_group == blood_request.blood_group,
+        DonorApplication.status == "Approved",
+        ((DonorApplication.last_donation_date == None) |
+         (DonorApplication.last_donation_date <= datetime.utcnow() - timedelta(days=90))),
+        (
+            (User.username.ilike(f"%{query}%")) |
+            (User.name.ilike(f"%{query}%"))
+        )
+    ).limit(10).all()
+
+    results = [{
+        "id": d.id,
+        "username": d.username,
+        "name": d.name,
+        "profile_picture": d.profile_picture or "default.png",
+        "blood_group": d.blood_group,
+        "last_donation_date": d.donor_application.last_donation_date.strftime("%Y-%m-%d")
+            if d.donor_application and d.donor_application.last_donation_date else None
+    } for d in eligible_donors]
+
+    return jsonify(results=results)
+
+
+# Route: Refer Donor
+@app.route("/api/refer_donor", methods=["POST"])
+def refer_donor():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    data = request.get_json()
+    donor_id = data.get("donor_id")
+    request_id = data.get("request_id")
+
+    donor = User.query.get_or_404(donor_id)
+    blood_request = BloodRequest.query.get_or_404(request_id)
+    creator = blood_request.user
+
+    if not donor_id or not request_id:
+        return jsonify({"error": "Missing donor_id or request_id"}), 400
+
+    existing = Referral.query.filter_by(donor_id=donor_id, request_id=request_id).first()
+    if existing:
+        return jsonify({"message": "Already referred."})
+
+    referral = Referral(
+        donor_id=donor_id,
+        request_id=request_id,
+        status="Pending"
+    )
+    db.session.add(referral)
+    db.session.commit()
+
+
+    # Construct link to the request (adjust your frontend route accordingly)
+    base_url = request.host_url.rstrip('/')
+    request_link = f"{base_url}/request_details/{request_id}"
+
+    # 🔔 Notify referred donor
+    donor_message = f"{current_user.username} referred you for a blood request at {blood_request.hospital_name}."
+    donor_notif = Notification(
+        recipient_id=donor.id,
+        sender_id=current_user.id,
+        message=donor_message,
+        link=request_link
+    )
+    db.session.add(donor_notif)
+
+    # 🔔 Notify request creator
+    creator_message = f"{current_user.username} referred {donor.username} as a donor for your blood request."
+    creator_notif = Notification(
+        recipient_id=creator.id,
+        sender_id=current_user.id,
+        message=creator_message,
+        link=request_link
+    )
+    db.session.add(creator_notif)
+
+    # 📧 Send email to donor
+    try:
+        msg = Message(
+            subject="You've been referred as a blood donor",
+            recipients=[donor.email],
+            body=f"""Hi {donor.name or donor.username},
+
+            You have been referred for a blood request at {blood_request.hospital_name}.
+
+            View the request here: {request_link}
+
+            Regards,
+            Lifedrop Team"""
+        )
+        mail.send(msg)
+    except Exception as e:
+        print("Failed to send email:", e)
+
+    db.session.commit()
+    return jsonify({"message": "Referral successful. Notifications and email sent."})
+
+@app.route("/request_details/<int:request_id>")
+def request_details(request_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))  # or your preferred redirect
+
+    user_id = session['user_id']
+    request_obj = BloodRequest.query.get_or_404(request_id)
+
+    referral = Referral.query.filter_by(
+        donor_id=user_id, request_id=request_id
+    ).first()
+
+    return render_template("request_details.html", request_obj=request_obj, referral=referral)
+
+@app.route("/respond_referral/<int:request_id>/<string:action>", methods=["POST"])
+def respond_referral(request_id, action):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    referral = Referral.query.filter_by(
+        donor_id=user_id, request_id=request_id
+    ).first_or_404()
+
+    if action not in ["accept", "reject"]:
+        return "Invalid action", 400
+
+    referral.status = "Accepted" if action == "accept" else "Rejected"
+    db.session.commit()
+
+    return redirect(url_for('request_details', request_id=request_id))
+
+@app.route("/api/report_post", methods=["POST"])
+def report_post():
+    data = request.get_json()
+    request_id = data.get("request_id")
+
+    if not request_id or "user_id" not in session:
+        return jsonify({"message": "Invalid request"}), 400
+
+    reporter_id = session["user_id"]
+    blood_request = BloodRequest.query.get(request_id)
+
+    if not blood_request:
+        return jsonify({"message": "Blood request not found."}), 404
+
+    # Notify all admins
+    admins = Admin.query.all()
+    for admin in admins:
+        notif = Notification(
+            admin_recipient_id=admin.admin_id,
+            sender_id=reporter_id,
+            message=f"A post (ID #{request_id}) has been reported by user ID {reporter_id}.",
+            link=url_for('admin_view_post', request_id=request_id)
+        )
+        db.session.add(notif)
+
+    db.session.commit()
+    return jsonify({"message": "Reported successfully. Admins have been notified."})
+
+@app.route("/admin/request_details/<int:request_id>")
+def admin_view_post(request_id):
+    if 'admin_id' not in session:
+        return "Unauthorized", 403
+
+    request_obj = BloodRequest.query.get_or_404(request_id)
+    return render_template("admin_request_details.html", request_obj=request_obj)
+
+@app.route("/admin/delete_request/<int:request_id>", methods=["POST"])
+def delete_blood_request(request_id):
+    if 'admin_id' not in session:
+        return "Unauthorized", 403
+
+    blood_request = BloodRequest.query.get_or_404(request_id)
+    db.session.delete(blood_request)
+    db.session.commit()
+    flash("Blood request deleted.", "success")
+    return redirect(url_for("admin_dashboard"))
 
 
 @app.route('/get_post/<int:post_id>')
@@ -1143,16 +1350,22 @@ def admin_dashboard():
         flash("Admin not found.", "danger")
         return redirect(url_for('admin_login'))
 
-    # Admin notifications
-    admin_notifications = []
-    report_count = Report.query.count()
-    if report_count > 0:
-        admin_notifications.append(f"You have {report_count} reports to review. <a href='/admin/reports'>View</a>")
+    # Fetch all admin notifications from DB
+    admin_notifications = Notification.query.filter_by(
+        admin_recipient_id=admin.admin_id
+    ).order_by(Notification.timestamp.desc()).all()
+
+    # Optional: store in session for popup (if needed)
+    session['notifications'] = [
+        {
+            'id': notif.id,
+            'message': notif.message,
+            'link': notif.link
+        } for notif in admin_notifications if not notif.is_read
+    ]
 
     donor_applications = DonorApplication.query.all()
     pending_apps = [app for app in donor_applications if app.status == 'Pending']
-    if pending_apps:
-        admin_notifications.append(f"{len(pending_apps)} donor applications are pending approval.")
 
     return render_template(
         "admin_dashboard.html",
@@ -1161,8 +1374,9 @@ def admin_dashboard():
         users=User.query.all(),
         donor_applications=donor_applications,
         blood_requests=BloodRequest.query.all(),
-        notifications=admin_notifications
+        notifications=session['notifications']
     )
+
 
 from forms import AddAdminForm
 
