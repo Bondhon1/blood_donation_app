@@ -89,6 +89,130 @@ document.addEventListener("DOMContentLoaded", function () {
     }  
     
 });
+document.addEventListener("DOMContentLoaded", () => {
+    const socket = io();
+
+    // 🔐 Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute("content");
+
+    fetch('/api/get_user_id')
+    .then(response => response.json())
+    .then(data => {
+        const userId = data.user_id;
+        if (!userId) return;
+
+        socket.emit('join', { user_id: userId });
+
+        const notifBtn = document.getElementById("notifBtn");
+        const notifPopup = document.getElementById("notifPopup");
+        const notifBadge = document.getElementById("notifBadge");
+        const container = document.getElementById("notifContainer");
+
+        // Load existing notifications
+        fetch('/api/notifications')
+        .then(res => res.json())
+        .then(data => {
+            container.innerHTML = "";
+            let unreadCount = 0;
+
+            if (data.notifications.length === 0) {
+                container.innerHTML = '<p id="noNotifs">No notifications</p>';
+                notifBadge.style.display = "none";
+                return;
+            }
+
+            data.notifications.forEach(n => {
+                const notif = createNotificationElement(n);
+                container.appendChild(notif);
+                if (!n.is_read) unreadCount++;
+            });
+
+            if (unreadCount > 0) {
+                notifBadge.innerText = unreadCount;
+                notifBadge.style.display = "inline-block";
+            } else {
+                notifBadge.style.display = "none";
+            }
+        });
+
+        socket.on('new_notification', (data) => {
+            if (data.recipient_id != userId) return;
+            if (!container || container.querySelector(`[data-id="${data.notif_id}"]`)) return;
+
+            const noNotifMsg = container.querySelector("#noNotifs");
+            if (noNotifMsg) noNotifMsg.remove();
+
+            const newNotif = createNotificationElement({
+                id: data.notif_id,
+                message: data.message,
+                link: data.link,
+                is_read: false
+            });
+
+            container.prepend(newNotif);
+
+            let count = parseInt(notifBadge.innerText || "0") + 1;
+            notifBadge.innerText = count;
+            notifBadge.style.display = "inline-block";
+        });
+
+        function createNotificationElement(n) {
+            const notif = document.createElement("div");
+            notif.classList.add("alert", "alert-warning", "alert-dismissible", "fade", "show");
+            notif.setAttribute("data-id", n.id);
+            if (!n.is_read) notif.classList.add("unread-notification");
+
+            if (n.link) {
+                notif.innerHTML = `<a href="#" class="text-decoration-none notif-link" data-id="${n.id}" data-link="${n.link}">${n.message}</a>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            } else {
+                notif.innerHTML = `${n.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            }
+
+            return notif;
+        }
+
+        // Mark as read on link click
+        container.addEventListener("click", (e) => {
+            if (e.target.classList.contains("notif-link")) {
+                e.preventDefault();
+                const notifId = e.target.dataset.id;
+                const link = e.target.dataset.link;
+                fetch(`/api/mark_notification_read/${notifId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken  // ✅ include CSRF token
+                    }
+                })
+                .then(async res => {
+                    const text = await res.text();
+                    try {
+                        const data = JSON.parse(text);
+                        if (data.success) {
+                            e.target.closest(".alert").classList.remove("unread-notification");
+
+                            let count = parseInt(notifBadge.innerText || "0") - 1;
+                            notifBadge.innerText = count > 0 ? count : '';
+                            if (count <= 0) notifBadge.style.display = "none";
+
+                            setTimeout(() => {
+                                window.location.href = `${link}?notif_id=${notifId}`;
+                            }, 150);
+                        }
+                    } catch (err) {
+                        console.error("❌ Failed to parse JSON:", text);
+                    }
+                });
+            }
+        });
+    });
+});
+
+
+
+
 // 🔹 Custom Mobile Menu Toggle
 let burgerButton = document.getElementById("mobileMenuToggle");
 let mobileMenu = document.getElementById("customMobileMenu");

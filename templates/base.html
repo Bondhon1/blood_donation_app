@@ -95,34 +95,18 @@
     
                                 <!-- Notifications -->
                                 <li class="nav-item">
-                                    <button class="btn btn-outline-light me-2" id="notifBtn">
+                                    <button class="btn btn-outline-light me-2 position-relative" id="notifBtn">
                                         <i class="fas fa-bell"></i>
-                                        {% if session.get('notifications') %}
-                                            <span class="badge bg-danger">{{ session['notifications']|length }}</span>
-                                        {% endif %}
+                                        <span class="badge bg-danger position-absolute top-0 start-100 translate-middle" id="notifBadge" style="display: none;">0</span>
                                     </button>
                                     <div id="notifPopup" class="dropdown-popup">
-                                        {% if session.get('notifications') %}
-                                            <div class="notifications-container">
-                                                {% for notification in session['notifications'] %}
-                                                    <div class="alert alert-info alert-dismissible fade show">
-                                                        {% if notification.link %}
-                                                            <a href="{{ notification.link }}?notif_id={{ notification.id }}" class="text-decoration-none">
-                                                                {{ notification.message }}
-                                                            </a>
-                                                        {% else %}
-                                                            {{ notification.message }}
-                                                        {% endif %}
-                                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                                    </div>
-                                                {% endfor %}
-                                            </div>
-                                        {% else %}
-                                            <p>No new notifications</p>
-                                        {% endif %}
-
+                                        <div class="notifications-container" id="notifContainer">
+                                            <p id="noNotifs">No new notifications</p>
+                                        </div>
                                     </div>
                                 </li>
+
+
     
                                 <!-- Profile Dropdown -->
                                 <li class="nav-item">
@@ -177,6 +161,8 @@
         <!-- Correct version for Bootstrap 5.3.3 -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
+        <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+        
 
         <script src="{{ url_for('static', filename='scripts.js') }}"></script>
     
@@ -214,7 +200,9 @@
         </div>
       </div>
     </div>
-  </div>     
+  </div>    
+
+
     </body>
     
 </html>

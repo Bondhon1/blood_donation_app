@@ -19,6 +19,7 @@ import json
 from PIL import Image
 from PIL import Image, ExifTags
 from flask_wtf.csrf import CSRFProtect
+from flask_socketio import SocketIO, join_room
 
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
@@ -31,6 +32,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
+socketio = SocketIO(app, cors_allowed_origins="*")  # ← ADD THIS HERE
 
 
 
@@ -52,6 +54,13 @@ def home():
         if user:
             return redirect(url_for('news_feed', username=user.username))  # ✅ Pass username
     return render_template('home.html')
+
+@socketio.on('join')
+def handle_join(data):
+    user_id = data.get('user_id')
+    if user_id:
+        join_room(str(user_id))  # Use string in case user_id is int
+        print(f"User {user_id} joined their socket room.")
 
 ### ✅ API: Check Username & Email Availability
 @app.route('/check_user', methods=['POST'])
@@ -142,6 +151,17 @@ def login():
         return redirect(url_for('login'))  # ✅ Redirect after flashing message
     
     return render_template('login.html', form=form)
+@app.route('/api/get_user_id')
+def get_user_id():
+    user_id = session.get('user_id')
+    admin_id = session.get('admin_id')
+    if user_id:
+        return {'user_id': user_id, 'is_admin': False}, 200
+    elif admin_id:
+        return {'user_id': admin_id, 'is_admin': True}, 200
+    else:
+        return {'user_id': None, 'is_admin': None}, 200
+
 
 
 @app.before_request
@@ -206,13 +226,17 @@ def logout():
     session.clear()
     flash("Logged out successfully!", "info")
     return redirect(url_for('home'))
+@app.context_processor
+def inject_user_id():
+    return {'user_id': session.get('user_id')}
 
 @app.route('/news_feed/<username>')
 def news_feed(username):
     if 'user_id' not in session:
         flash("Please log in first.", "warning")
         return redirect(url_for('login'))
-
+    user_id = session.get('user_id')
+    
     user = User.query.get(session['user_id'])
     if not user:
         flash("User not found.", "danger")
@@ -274,7 +298,8 @@ def news_feed(username):
         username=username,
         user=user,
         donation_requests=sorted_requests,
-        notifications=session['notifications']
+        notifications=session['notifications'],
+        user_id=user_id,
     )
 
 
@@ -420,7 +445,12 @@ def donor_response(request_id):
         )
         db.session.add(notification)
         db.session.commit()
-
+        socketio.emit('new_notification', {
+            'recipient_id': notification.recipient_id,
+            'message': notification.message,
+            'link': notification.link,
+            'notif_id': notification.id
+        }, room=str(notification.recipient_id))
         return jsonify({
             "status": "success",
             "message": "You have been assigned as a donor.",
@@ -923,6 +953,7 @@ def refer_donor():
         link=request_link
     )
     db.session.add(donor_notif)
+    
 
     # 🔔 Notify request creator
     creator_message = f"{current_user.username} referred {donor.username} as a donor for your blood request."
@@ -953,7 +984,74 @@ def refer_donor():
         print("Failed to send email:", e)
 
     db.session.commit()
+    socketio.emit('new_notification', {
+            'recipient_id': donor_notif.recipient_id,
+            'message': donor_notif.message,
+            'link': donor_notif.link,
+            'notif_id': donor_notif.id
+        }, room=str(donor_notif.recipient_id))
+    socketio.emit('new_notification', {
+            'recipient_id': creator_notif.recipient_id,
+            'message': creator_notif.message,
+            'link': creator_notif.link,
+            'notif_id': creator_notif.id
+        }, room=str(creator_notif.recipient_id))
     return jsonify({"message": "Referral successful. Notifications and email sent."})
+
+@app.route('/api/notifications')
+def get_notifications():
+    user_id = session.get('user_id')
+    admin_id = session.get('admin_id')
+
+    if user_id:
+        notifications = Notification.query.filter_by(
+            recipient_id=user_id
+        ).order_by(Notification.timestamp.desc()).limit(20).all()
+    elif admin_id:
+        notifications = Notification.query.filter_by(
+            admin_recipient_id=admin_id
+        ).order_by(Notification.timestamp.desc()).limit(20).all()
+    else:
+        return jsonify({"notifications": []})
+
+    notif_list = [{
+        'id': n.id,
+        'message': n.message,
+        'link': n.link,
+        'is_read': n.is_read,
+        'timestamp': n.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    } for n in notifications]
+
+    return jsonify({"notifications": notif_list})
+
+
+@app.route('/api/mark_notification_read/<int:notif_id>', methods=['POST'])
+def mark_notification_read(notif_id):
+    user_id = session.get('user_id')
+    admin_id = session.get('admin_id')
+
+    if not user_id and not admin_id:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    notif = Notification.query.get(notif_id)
+    if not notif:
+        return jsonify({"success": False, "error": "Notification not found"}), 404
+
+    # For normal users
+    if user_id and notif.recipient_id == user_id:
+        notif.is_read = True
+        db.session.commit()
+        return jsonify({"success": True})
+
+    # For admin users
+    if admin_id and notif.admin_recipient_id == admin_id:
+        notif.is_read = True
+        db.session.commit()
+        return jsonify({"success": True})
+
+    return jsonify({"success": False, "error": "Forbidden"}), 403
+
+
 
 @app.route("/request_details/<int:request_id>")
 def request_details(request_id):
@@ -1008,11 +1106,22 @@ def report_post():
             admin_recipient_id=admin.admin_id,
             sender_id=reporter_id,
             message=f"A post (ID #{request_id}) has been reported by user ID {reporter_id}.",
-            link=url_for('admin_view_post', request_id=request_id)
+            link=url_for('admin_view_post', request_id=request_id),
+            is_read=False
         )
         db.session.add(notif)
+        db.session.flush()  # Assigns notif.id before commit
+
+        # Emit real-time notification to the admin
+        socketio.emit('new_notification', {
+            'admin_recipient_id': admin.admin_id,
+            'message': notif.message,
+            'link': notif.link,
+            'notif_id': notif.id
+        }, namespace='/notifications', room=str(notif.admin_recipient_id))  # optional namespace
 
     db.session.commit()
+
     return jsonify({"message": "Reported successfully. Admins have been notified."})
 
 @app.route("/admin/request_details/<int:request_id>")
@@ -1530,4 +1639,4 @@ def admin_logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host="0.0.0.0", port=10000,debug=True)
+    socketio.run(app, host="0.0.0.0", port=10000,debug=True)
