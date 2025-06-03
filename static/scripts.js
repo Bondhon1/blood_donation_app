@@ -98,17 +98,19 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch('/api/get_user_id')
     .then(response => response.json())
     .then(data => {
-        const userId = data.user_id;
-        if (!userId) return;
+    const userId = data.user_id;
+    const isAdmin = data.is_admin;
 
-        socket.emit('join', { user_id: userId });
+    if (!userId) return;
 
-        const notifBtn = document.getElementById("notifBtn");
-        const notifPopup = document.getElementById("notifPopup");
-        const notifBadge = document.getElementById("notifBadge");
-        const container = document.getElementById("notifContainer");
+    socket.emit('join', { user_id: userId });
 
-        // Load existing notifications
+    const notifBtn = document.getElementById("notifBtn");
+    const notifPopup = document.getElementById("notifPopup");
+    const notifBadge = document.getElementById("notifBadge");
+    const container = document.getElementById("notifContainer");
+
+    // Load existing notifications
         fetch('/api/notifications')
         .then(res => res.json())
         .then(data => {
@@ -136,7 +138,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         socket.on('new_notification', (data) => {
-            if (data.recipient_id != userId) return;
+            console.log("📥 Incoming notification via socket:", data);  // <-- Add this
+            const targetId = data.recipient_id || data.admin_recipient_id;
+            if (targetId != userId) return;
             if (!container || container.querySelector(`[data-id="${data.notif_id}"]`)) return;
 
             const noNotifMsg = container.querySelector("#noNotifs");
@@ -156,6 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
             notifBadge.style.display = "inline-block";
         });
 
+
         function createNotificationElement(n) {
             const notif = document.createElement("div");
             notif.classList.add("alert", "alert-warning", "alert-dismissible", "fade", "show");
@@ -173,17 +178,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return notif;
         }
 
-        // Mark as read on link click
+        // ✅ Mark as read
         container.addEventListener("click", (e) => {
             if (e.target.classList.contains("notif-link")) {
                 e.preventDefault();
                 const notifId = e.target.dataset.id;
                 const link = e.target.dataset.link;
+
                 fetch(`/api/mark_notification_read/${notifId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken  // ✅ include CSRF token
+                        'X-CSRFToken': csrfToken
                     }
                 })
                 .then(async res => {
