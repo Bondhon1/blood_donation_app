@@ -29,7 +29,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SERVER_NAME'] = '127.0.0.1:10000'
+#app.config['SERVER_NAME'] = '127.0.0.1:10000'
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
