@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
 from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse
@@ -29,7 +31,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SERVER_NAME'] = '127.0.0.1:10000'
+#app.config['SERVER_NAME'] = '127.0.0.1:10000'
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
@@ -233,32 +235,54 @@ def inject_user_id():
 
 @app.route('/news_feed/<username>')
 def news_feed(username):
-    if 'user_id' not in session:
+    user = None
+    user_id = None
+
+    # ✅ Check for user session first
+    if 'user_id' in session:
+        user_id = session['user_id']
+        user = User.query.get(user_id)
+
+    # ✅ If not a user, check for admin session
+    elif 'admin_id' in session:
+        user_id = session['admin_id']  # Not necessary unless you want to use it
+        user = Admin.query.get(user_id)
+
+        if not user:
+            flash("Admin not found.", "danger")
+            return redirect(url_for('admin_login'))
+
+        # For admins, just show latest blood requests without sorting
+        sorted_requests = BloodRequest.query.order_by(BloodRequest.created_at.desc()).limit(20).all()
+
+        return render_template(
+            'news_feed.html',
+            username=username,
+            user=user,
+            donation_requests=sorted_requests,
+            notifications=[],  # Admins likely don’t have notifications
+            user_id=user_id
+        )
+
+    else:
         flash("Please log in first.", "warning")
         return redirect(url_for('login'))
-    user_id = session.get('user_id')
-    
-    user = User.query.get(session['user_id'])
+
+    # ✅ For logged-in user
     if not user:
         flash("User not found.", "danger")
         return redirect(url_for('login'))
 
-    # ✅ Fetch unread DB notifications
+    # --- Notifications for users ---
     db_notifications = Notification.query.filter_by(
         recipient_id=user.id, is_read=False
     ).order_by(Notification.timestamp.desc()).all()
 
     notif_messages = [
-        {
-            "id": n.id,
-            "message": n.message,
-            "link": n.link
-        }
+        {"id": n.id, "message": n.message, "link": n.link}
         for n in db_notifications
     ]
 
-
-    # Add non-database inline notifications
     if not user.email_verified:
         notif_messages.append({
             "id": None,
@@ -266,12 +290,9 @@ def news_feed(username):
             "link": None
         })
 
- 
-
-    # ✅ Store in session for use in popup
     session['notifications'] = notif_messages
 
-    # --- Blood Request Priority Logic ---
+    # --- Prioritized Blood Requests ---
     LIMIT_COUNT = 10
     session_district = session.get('district')
     session_division = session.get('division')
@@ -300,42 +321,64 @@ def news_feed(username):
         user=user,
         donation_requests=sorted_requests,
         notifications=session['notifications'],
-        user_id=user_id,
+        user_id=user_id
     )
+
 
 
 @app.route('/api/news_feed')
 def api_news_feed():
-    if 'user_id' not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+    # Check if it's a logged-in user or an admin
+    is_user = 'user_id' in session
+    is_admin = 'admin_id' in session
 
-    session_district = session.get('district')
-    session_division = session.get('division')
-    if not session_district or not session_division:
-        return jsonify({"error": "Missing location information."}), 400
+    if not (is_user or is_admin):
+        return jsonify({"error": "Unauthorized"}), 401
 
     offset = int(request.args.get('offset', 0))
     limit = int(request.args.get('limit', 6))
 
-    # Priority logic as before...
-    LIMIT_COUNT = 10
-    location_str = f"{session_district}, {session_division}"
+    # ---------------- For regular users ----------------
+    if is_user:
+        session_district = session.get('district')
+        session_division = session.get('division')
 
-    priority1 = BloodRequest.query.filter(BloodRequest.location.ilike(f"%{session_district}%")).all()
-    priority2 = BloodRequest.query.filter(
-        BloodRequest.location.ilike(f"%{session_division}%"),
-        ~BloodRequest.location.ilike(f"%{session_district}%")
-    ).limit(LIMIT_COUNT).all()
-    priority3 = BloodRequest.query.filter(
-        BloodRequest.urgency_status.ilike("High"),
-        ~BloodRequest.location.ilike(f"%{session_division}%")
-    ).limit(LIMIT_COUNT).all()
+        if not session_district or not session_division:
+            return jsonify({"error": "Missing location information."}), 400
 
-    priority_ids = {req.id for req in priority1 + priority2 + priority3}
-    priority4 = BloodRequest.query.filter(~BloodRequest.id.in_(priority_ids)).limit(LIMIT_COUNT).all()
+        LIMIT_COUNT = 10
 
-    sorted_requests = priority1 + priority2 + priority3 + priority4
-    paginated = sorted_requests[offset:offset+limit]
+        # Priority levels
+        priority1 = BloodRequest.query.filter(
+            BloodRequest.location.ilike(f"%{session_district}%")
+        ).all()
+
+        priority2 = BloodRequest.query.filter(
+            BloodRequest.location.ilike(f"%{session_division}%"),
+            ~BloodRequest.location.ilike(f"%{session_district}%")
+        ).limit(LIMIT_COUNT).all()
+
+        priority3 = BloodRequest.query.filter(
+            BloodRequest.urgency_status.ilike("High"),
+            ~BloodRequest.location.ilike(f"%{session_division}%")
+        ).limit(LIMIT_COUNT).all()
+
+        priority_ids = {req.id for req in priority1 + priority2 + priority3}
+
+        priority4 = BloodRequest.query.filter(
+            ~BloodRequest.id.in_(priority_ids)
+        ).limit(LIMIT_COUNT).all()
+
+        sorted_requests = priority1 + priority2 + priority3 + priority4
+
+    # ---------------- For admins ----------------
+    elif is_admin:
+        sorted_requests = BloodRequest.query.order_by(
+            BloodRequest.created_at.desc()
+        ).all()
+
+    # ---------------- Pagination ----------------
+    paginated = sorted_requests[offset:offset + limit]
 
     return jsonify({
         "requests": [r.to_dict() for r in paginated],
@@ -1213,25 +1256,93 @@ def upvote_request(post_id):
         return jsonify({"error": "Unauthorized"}), 401
 
     user_id = session['user_id']
+    current_user = User.query.get(user_id)
     blood_request = BloodRequest.query.get_or_404(post_id)
+    post_owner = blood_request.user
 
     existing_upvote = BloodRequestUpvote.query.filter_by(
         user_id=user_id, blood_request_id=post_id
     ).first()
 
     if existing_upvote:
-        # ✅ Remove the upvote and decrement count
         db.session.delete(existing_upvote)
         blood_request.upvote_count = max(0, blood_request.upvote_count - 1)
-    else:
-        # ✅ Add new upvote and increment count
-        new_upvote = BloodRequestUpvote(user_id=user_id, blood_request_id=post_id)
-        db.session.add(new_upvote)
-        blood_request.upvote_count += 1
+        db.session.commit()
+        return jsonify({"success": True, "upvotes": blood_request.upvote_count})
 
+    # Add new upvote
+    new_upvote = BloodRequestUpvote(user_id=user_id, blood_request_id=post_id)
+    db.session.add(new_upvote)
+    blood_request.upvote_count += 1
     db.session.commit()
 
+    # 🔔 Notify post creator (if upvoter isn't the creator)
+    if user_id != post_owner.id:
+        # Get recent upvoters for this post (excluding the post owner)
+        upvoters = (
+            db.session.query(User.username)
+            .join(BloodRequestUpvote, User.id == BloodRequestUpvote.user_id)
+            .filter(
+                BloodRequestUpvote.blood_request_id == post_id,
+                User.id != post_owner.id
+            )
+            .order_by(BloodRequestUpvote.id.desc())
+            .limit(4)
+            .all()
+        )
+        upvoter_usernames = [u.username for u in upvoters]
+        
+        if upvoter_usernames:
+            # Build notification message
+            latest_user = upvoter_usernames[0]
+            others_count = len(upvoter_usernames) - 1
+
+            if others_count == 0:
+                message = f"{latest_user} liked your post."
+            elif others_count == 1:
+                message = f"{latest_user} and 1 other liked your post."
+            else:
+                message = f"{latest_user} and {others_count} others liked your post."
+
+            # Create notification entry
+            notification = Notification(
+                recipient_id=post_owner.id,
+                sender_id=user_id,
+                message=message,
+                link=url_for('view_blood_request', request_id=post_id),
+                is_read=False
+            )
+            db.session.add(notification)
+            db.session.commit()
+
+            # 🔴 Emit notification using Socket.IO
+            socketio.emit('new_notification', {
+                'recipient_id': post_owner.id,
+                'message': message,
+                'link': notification.link,
+                'notif_id': notification.id
+            }, room=str(post_owner.id))
+
     return jsonify({"success": True, "upvotes": blood_request.upvote_count})
+
+@app.route('/view_blood_request/<int:request_id>')
+def view_blood_request(request_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    user = User.query.get(user_id)
+
+    blood_request = BloodRequest.query.get_or_404(request_id)
+
+    # Pre-load all comments, replies, upvotes, etc., if needed for JS.
+    return render_template('view_blood_request.html',
+                           blood_request=blood_request,
+                           current_user=user)
+@app.route('/api/blood_request/<int:request_id>')
+def api_blood_request(request_id):
+    blood_request = BloodRequest.query.get_or_404(request_id)
+    return jsonify(blood_request.to_dict())
 
 
 @app.route('/get_comments/<int:request_id>')
@@ -1297,24 +1408,86 @@ def add_comment(request_id):
     if 'user_id' not in session:
         return jsonify({"success": False, "error": "Unauthorized"}), 401
 
-    text = request.form.get('text')
-    if not text:
-        text = ""
-
+    text = request.form.get('text', "")
     image = request.files.get('image')
     image_filename = None
     if image:
         image_filename = secure_filename(f"{uuid.uuid4().hex}_{image.filename}")
         image.save(os.path.join(app.config['UPLOAD_FOLDER'], image_filename))
 
+    commenter_id = session['user_id']
+    commenter = User.query.get(commenter_id)
+    blood_request = BloodRequest.query.options(db.joinedload(BloodRequest.user)).get(request_id)
+
+
     new_comment = Comment(
-        user_id=session['user_id'],
+        user_id=commenter_id,
         blood_request_id=request_id,
         text=text,
         image=image_filename
     )
     db.session.add(new_comment)
     db.session.commit()
+
+    # 🔔 Smart Notification Logic
+    if blood_request and blood_request.user_id != commenter_id:
+        print("blood_request.user_id", blood_request.user_id)
+        print("commenter_id", commenter_id)
+
+        # Get recent unique commenters excluding the current commenter and post owner
+        recent_commenters = (
+            db.session.query(User.name, User.username, Comment.created_at)
+            .join(Comment, User.id == Comment.user_id)
+            .filter(
+                Comment.blood_request_id == request_id,
+                Comment.user_id != commenter_id,
+                Comment.user_id != blood_request.user_id
+            )
+            .order_by(Comment.created_at.desc())
+            .distinct()
+            .limit(5)
+            .all()
+        )
+
+        # Extract readable names
+        upvoter_usernames = [name or uname for name, uname, _ in recent_commenters if name or uname]
+
+        # Add the current commenter to the list
+        commenter = db.session.get(User, commenter_id)
+        current_commenter_name = commenter.name or commenter.username
+        upvoter_usernames.insert(0, current_commenter_name)
+
+        # Generate message
+        latest_user = upvoter_usernames[0]
+        others_count = len(upvoter_usernames) - 1
+
+        if others_count == 0:
+            message = f"{latest_user} commented on your blood request for {blood_request.patient_name}."
+        elif others_count == 1:
+            message = f"{latest_user} and 1 other commented on your blood request for {blood_request.patient_name}."
+        else:
+            message = f"{latest_user} and {others_count} others commented on your blood request for {blood_request.patient_name}."
+
+        # Create and emit notification
+        notification = Notification(
+            recipient_id=blood_request.user_id,
+            sender_id=commenter_id,
+            message=message,
+            link=url_for('view_blood_request', request_id=blood_request.id),
+            is_read=False
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        # Real-time notification
+        socketio.emit('new_notification', {
+            'recipient_id': notification.recipient_id,
+            'message': notification.message,
+            'link': notification.link,
+            'notif_id': notification.id
+        }, room=str(notification.recipient_id))
+
+
     return jsonify({"success": True})
 
 

@@ -74,12 +74,13 @@
                                     </button>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ url_for('news_feed', username=session.get('username', '')) }}" 
-                                       class="btn btn-outline-light me-2 nav-link">
-                                        <i class="fas fa-newspaper"></i> 
+                                    <a href="{{ url_for('news_feed', username=session.get('username', session.get('admin_username', ''))) }}"
+                                    class="btn btn-outline-light me-2 nav-link">
+                                        <i class="fas fa-newspaper"></i>
                                         <span class="hide-on-mobile"> News Feed</span>
-                                    </a>
+                                </a>
                                 </li>
+
                                 <li class="nav-item">
                                     <a href="#" class="btn btn-outline-light me-2 nav-link">
                                         <i class="fas fa-user-md"></i> 

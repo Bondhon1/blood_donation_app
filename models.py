@@ -118,8 +118,9 @@ class BloodRequest(db.Model):
             "hospital_name": self.hospital_name,
             "urgency_status": self.urgency_status,
             "location": str(self.location) if self.location else "Unknown",
-
+            "contact_number": self.user.phone or "Not provided",
             "amount_needed": self.amount_needed,
+            "required_date": self.required_date.isoformat(),
             "reason": self.reason,
             "images": self.images or [],
             "status": self.status,

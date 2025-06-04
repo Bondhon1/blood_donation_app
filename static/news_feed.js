@@ -148,6 +148,8 @@ function createPostHTML(request) {
                 <p><strong>Blood Group:</strong> ${request.blood_group}</p>
                 <p><strong>Hospital:</strong> ${request.hospital_name}</p>
                 <p><strong>Location:</strong> ${request.location}</p>
+                <p><strong>Required Date:</strong> ${request.required_date}</p>
+                <p><strong>Contact:</strong> ${request.contact_number}</p>
                 <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
                 <p><strong>Blood Needed:</strong> ${request.amount_needed} bag${request.amount_needed > 1 ? 's' : ''}</p>
                 <p>${request.reason}</p>

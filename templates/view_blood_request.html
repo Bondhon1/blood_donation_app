@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Blood Request Details{% endblock %}
+{% block content %}
+
+<div class="container mt-4">
+    <div id="single-post-container"></div>
+</div>
+
+<!-- Comments and Reply containers if needed -->
+<div id="comments-section" class="container mt-4"></div>
+
+<script>
+    const currentUser = {
+        id: {{ current_user.id }},
+        username: "{{ current_user.username }}",
+        name: "{{ current_user.name or current_user.username }}",
+        profile_picture: "{{ url_for('static', filename='profile_pics/' + (current_user.profile_picture or 'default.jpg')) }}",
+        is_donor: {{ 'true' if current_user.blood_group else 'false' }}
+    };
+
+    const currentPostId = {{ blood_request.id }};
+</script>
+
+<!-- Load same JS as news_feed for rendering -->
+
+
+
+<script>
+    // Fetch the full post data via API or preload directly
+    document.addEventListener("DOMContentLoaded", function () {
+        fetch(`/api/blood_request/${currentPostId}`)
+            .then(response => response.json())
+            .then(data => {
+                const html = createPostHTML(data);
+                document.getElementById("single-post-container").innerHTML = html;
+
+                
+            })
+            .catch(err => {
+                console.error("Failed to load post:", err);
+                document.getElementById("single-post-container").innerHTML =
+                    `<p class='text-danger'>Error loading blood request. ${err.message}</p>`;
+            });
+
+    });
+    function getUrgencyClass(status) {
+    return status === "Critical" ? "danger" : status === "Urgent" ? "warning" : "primary";
+}
+
+function createPostHTML(request) {
+    console.log("Current User:", currentUser.username, "Is Donor:", currentUser.is_donor);
+    let images = [];
+    if (typeof request.images === "string" && request.images.trim() !== "") {
+        images = request.images.split(",").map(img => img.trim()).filter(img => img !== "");
+    }
+
+    let donorStatus = request.donors_assigned >= request.amount_needed
+        ? "All Donors Assigned"
+        : request.donors_assigned > 0
+            ? `${request.donors_assigned} out of ${request.amount_needed} Donors Assigned`
+            : "No Donor Yet";
+
+    let moreImages = images.length > 4 ? images.length - 4 : 0;
+    let imagesHTML = "";
+
+    if (images.length > 0) {
+        imagesHTML = `
+            <div class="post-images-container">
+                ${images.slice(0, 4).map((img, index) => `
+                    <div class="post-img-box">
+                        <img src="/static/profile_pics/${img}" class="post-img" onclick="openSlider(${request.id}, ${index})">
+                    </div>
+                `).join('')}
+                ${moreImages > 0 ? `
+                    <div class="post-img-box more-images" onclick="openSlider(${request.id}, 0)">
+                        +${moreImages} more
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    }
+
+    // 🧠 Construct options menu
+    let optionsMenuHTML = "";
+    if (currentUser.username === request.user.username) {
+        optionsMenuHTML = `
+            <button onclick="editPost(${request.id})"><i class="fas fa-edit"></i> Edit</button>
+            <button onclick="deletePost(${request.id})"><i class="fas fa-trash"></i> Delete</button>
+            <button onclick="markDonorFound(${request.id})"><i class="fas fa-check"></i> Donor Found</button>
+        `;
+    } 
+    
+
+    return `
+        <div class="card shadow-sm post-card mb-3" data-id="${request.id}" data-images='${JSON.stringify(images)}'>
+            <div class="post-options">
+                <button class="options-btn" onclick="toggleOptionsMenu(${request.id})">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <div class="options-menu" id="options-menu-${request.id}">
+                    ${optionsMenuHTML}
+                </div>
+            </div>
+            <div class="post-header d-flex align-items-center">
+                <a href="/profile/${request.user.username}" class="fw-bold">
+                    <img src="/static/profile_pics/${request.user.profile_picture}" class="post-profile-pic">
+                </a>
+                <div class="post-user-info">
+                    <a href="/profile/${request.user.username}" class="fw-bold">${request.user.username}</a>
+                    <div class="text-muted small">${convertToUserTime(request.created_at)}</div>
+                </div>
+            </div>
+            <div class="post-body">
+                <p><strong>Patient Name:</strong> ${request.patient_name}</p>
+                <p><strong>Blood Group:</strong> ${request.blood_group}</p>
+                <p><strong>Hospital:</strong> ${request.hospital_name}</p>
+                <p><strong>Location:</strong> ${request.location}</p>
+                <p><strong>Required Date:</strong> ${request.required_date}</p>
+                <p><strong>Contact:</strong> ${request.contact_number}</p>
+                <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
+                <p><strong>Blood Needed:</strong> ${request.amount_needed} bag${request.amount_needed > 1 ? 's' : ''}</p>
+                <p>${request.reason}</p>
+                ${imagesHTML}
+            </div>
+            <div class="post-footer">
+                <div class="status-bar ${request.status === 'Fulfilled' ? 'donor-assigned' : ''}">
+                    <span id="assigned-donors-${request.id}">${donorStatus}</span>
+                </div>
+                <div class="post-actions">
+                    <button class="upvote-btn" data-id="${request.id}" onclick="upvotePost(${request.id})">
+                        <i class="fas fa-thumbs-up"></i> <span id="upvote-count-${request.id}">${request.upvotes || 0}</span>
+                    </button>
+                    <button class="comment-toggle-btn" onclick="toggleComments(${request.id})">
+                        <i class="fas fa-comment"></i> Comments
+                    </button>
+                </div>
+                <div class="comments-section" id="comments-${request.id}"></div>
+            </div>
+        </div>
+    `;
+}
+
+
+function convertToUserTime(utcString) {
+    const utcFixed = utcString.endsWith("Z") ? utcString : utcString + "Z";
+    const date = new Date(utcFixed);
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+function upvotePost(postId) {
+    fetch(`/upvote_request/${postId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`upvote-count-${postId}`).innerText = data.upvotes;
+
+            let upvoteBtn = document.querySelector(`.upvote-btn[data-id="${postId}"]`);
+            if (upvoteBtn) {
+                upvoteBtn.classList.toggle("upvoted");
+            }
+        } else {
+            showCustomModal({
+                title: "Error",
+                message: data.error || "Unknown error occurred",
+                onConfirm: () => {}
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error upvoting post:", error);
+        showCustomModal({
+            title: "Upvote Failed",
+            message: error.message || "Something went wrong.",
+            onConfirm: () => {}
+        });
+    });
+}
+
+
+
+
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+</script>
+
+{% endblock %}
