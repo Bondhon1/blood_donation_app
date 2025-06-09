@@ -5,6 +5,12 @@ from datetime import datetime, UTC
 
 db = SQLAlchemy()
 
+# ✅ Association table for friendships
+friends_association = db.Table('friends',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), primary_key=True),
+    db.Column('friend_id', db.Integer, db.ForeignKey('user.id', ondelete="CASCADE"), primary_key=True)
+)
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -12,19 +18,20 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     email_verified = db.Column(db.Boolean, default=False)
 
-    # ✅ Additional Profile Fields
+    # Optional profile info
     name = db.Column(db.String(100), nullable=True)
     phone = db.Column(db.String(20), nullable=True)
     address = db.Column(db.String(255), nullable=True)
     blood_group = db.Column(db.String(5), nullable=True)
     medical_history = db.Column(db.Text, nullable=True)
 
+    
     # Address Fields
     division_id = db.Column(db.Integer, db.ForeignKey('divisions.id'), nullable=True)
     district_id = db.Column(db.Integer, db.ForeignKey('districts.id'), nullable=True)
     upazila_id = db.Column(db.Integer, db.ForeignKey('upazilas.id'), nullable=True)
 
-    # ✅ Profile and Cover Picture
+    # Profile and cover picture
     profile_picture = db.Column(db.String(255), nullable=True, default="default.jpg")
     cover_photo = db.Column(db.String(255), nullable=True, default="default_cover.jpg")
 
@@ -38,8 +45,50 @@ class User(db.Model):
     comments = db.relationship('Comment', back_populates='user', lazy=True)
     blood_request_upvotes = db.relationship('BloodRequestUpvote', back_populates='user', lazy=True)
 
+    # ✅ Friend system
+    friends = db.relationship(
+        'User',
+        secondary=friends_association,
+        primaryjoin=id == friends_association.c.user_id,
+        secondaryjoin=id == friends_association.c.friend_id,
+        backref=db.backref('friend_of', lazy='dynamic'),
+        lazy='dynamic',
+        passive_deletes=True
+    )
 
-    def __init__(self, username, email, password, name=None, phone=None, address=None, blood_group=None, medical_history=None, profile_picture="default.jpg", cover_photo="default_cover.jpg", division=None, district=None, Upazila=None):
+    # ✅ Chat system
+    sent_messages = db.relationship(
+        'ChatMessage',
+        foreign_keys='ChatMessage.sender_id',
+        backref='sender_user',
+        lazy=True,
+        cascade='all, delete'
+    )
+    received_messages = db.relationship(
+        'ChatMessage',
+        foreign_keys='ChatMessage.receiver_id',
+        backref='receiver_user',
+        lazy=True,
+        cascade='all, delete'
+    )
+
+    # ✅ Friend request system
+    sent_friend_requests = db.relationship(
+        'FriendRequest',
+        foreign_keys='FriendRequest.sender_id',
+        backref='sender',
+        lazy=True,
+        cascade='all, delete'
+    )
+    received_friend_requests = db.relationship(
+        'FriendRequest',
+        foreign_keys='FriendRequest.receiver_id',
+        backref='receiver',
+        lazy=True,
+        cascade='all, delete'
+    )
+
+    def __init__(self, username, email, password, name=None, phone=None, address=None, blood_group=None, medical_history=None, profile_picture="default.jpg", cover_photo="default_cover.jpg"):
         self.username = username
         self.email = email
         self.password = generate_password_hash(password)
@@ -48,14 +97,31 @@ class User(db.Model):
         self.address = address
         self.blood_group = blood_group
         self.medical_history = medical_history
-        self.division_id = division
-        self.district_id = district
-        self.upazila_id = Upazila
         self.profile_picture = profile_picture or "default.jpg"
         self.cover_photo = cover_photo or "default_cover.jpg"
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+class FriendRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=db.func.now())
+    status = db.Column(db.String(20), default='pending')  # Options: 'pending', 'accepted', 'declined'
+
+class ChatMessage(db.Model):  # Renamed from Message
+    id = db.Column(db.Integer, primary_key=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    images = db.Column(db.Text, nullable=True)
+    attachments = db.Column(db.Text, nullable=True)
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
+    is_read = db.Column(db.Boolean, default=False)
+
+   
+
 
 # ✅ Blood Request Model
 class BloodRequest(db.Model):

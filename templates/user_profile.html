@@ -2,35 +2,384 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="card mb-3">
-        <div class="card-body d-flex align-items-center">
-            <img src="{{ url_for('static', filename='profile_pics/' ~ user.profile_picture) }}"
-                 class="rounded-circle me-3" width="80" height="80">
-            <div>
-                <h4 class="mb-0">{{ user.username }}</h4>
+    <!-- Profile Card -->
+    <div class="card shadow-lg mb-4">
+
+        <!-- Cover Photo -->
+        <div class="position-relative cover-container">
+            <img src="{{ url_for('static', filename='profile_pics/' + (user.cover_photo if user.cover_photo else 'default.jpg')) }}"
+                 class="img-fluid cover-image"
+                 alt="Cover Photo">
+        </div>
+
+        <!-- Profile Picture & Info -->
+        <div class="position-relative profile-container px-4">
+            <div class="text-center">
+                <img src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}"
+                     class="rounded-circle profile-pic"
+                     alt="Profile Picture">
+                <h3 class="mt-3 fw-bold">{{ user.username }}</h3>
                 <p class="text-muted mb-0">{{ user.full_name }}</p>
                 <p class="text-muted small">Blood Group: {{ user.blood_group }}</p>
             </div>
+
+            <!-- Action Buttons Row - Left Aligned -->
+            <div class="d-flex justify-content-start flex-wrap gap-2 mt-3 mb-3">
+                {% if session.get('username') != user.username %}
+                    {% if is_friend %}
+                        <button class="btn btn-danger" onclick="unfriend({{ session.get('user_id') }}, {{ user.id }})">
+                            Unfriend
+                        </button>
+                    {% else %}
+                        <button class="btn btn-outline-primary" onclick="sendFriendRequest({{ session.get('user_id') }}, {{ user.id }})">
+                            Add Friend
+                        </button>
+                    {% endif %}
+                {% endif %}
+                <button class="btn btn-outline-success" onclick="openChatModal({{ user.id }}, '{{ user.username }}')">
+                    <i class="fas fa-comments"></i> Chat With {{ user.username }}
+                </button>
+                {% if donor and donor.status == 'Approved' %}
+                <!-- View Donor Profile Button -->
+                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#donorProfileModal">
+                    View Donor Profile
+                </button>
+
+                <!-- Donor Profile Modal -->
+                <div class="modal fade" id="donorProfileModal" tabindex="-1" aria-labelledby="donorProfileModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                    <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="donorProfileModalLabel">Donor Profile: {{ user.full_name or user.username }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                        <div class="col-md-4 text-center">
+                            <img src="{{ url_for('static', filename='profile_pics/' + (user.profile_picture or 'default.jpg')) }}"
+                                alt="Profile Picture" class="img-thumbnail" style="max-width: 150px;">
+                        </div>
+                        <div class="col-md-8">
+                            <ul class="list-group list-group-flush">
+                            <li class="list-group-item"><strong>Username:</strong> {{ user.username }}</li>
+                            <li class="list-group-item"><strong>Full Name:</strong> {{ user.full_name or 'N/A' }}</li>
+                            <li class="list-group-item"><strong>Email:</strong> {{ user.email }}</li>
+                            <li class="list-group-item"><strong>Phone:</strong> {{ user.phone or 'Not Provided' }}</li>
+                            <li class="list-group-item"><strong>Blood Group:</strong> {{ user.blood_group or 'N/A' }}</li>
+                            <li class="list-group-item"><strong>Address:</strong>
+                                {% if user.division and user.district and user.upazila %}
+                                    {{ user.upazila.name }}, {{ user.district.name }}, {{ user.division.name }}
+                                {% else %}
+                                    {{ user.address or 'Not Provided' }}
+                                {% endif %}
+                            </li>
+                            <li class="list-group-item"><strong>Medical History (Text):</strong> {{ user.medical_history or 'None' }}</li>
+                            </ul>
+                        </div>
+                        </div>
+
+                        <h5 class="mb-3">Donor Application Details</h5>
+                        <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>Status:</strong> {{ donor.status }}</li>
+                        <li class="list-group-item"><strong>Date of Birth:</strong> {{ donor.date_of_birth.strftime('%d %B %Y') }}</li>
+                        <li class="list-group-item"><strong>Has Donated Before:</strong> {{ 'Yes' if donor.has_donated_before else 'No' }}</li>
+                        <li class="list-group-item"><strong>Last Donation Date:</strong> 
+                            {{ donor.last_donation_date.strftime('%d %B %Y') if donor.last_donation_date else 'Not Available' }}
+                        </li>
+                        <li class="list-group-item"><strong>Medical Conditions:</strong> {{ donor.medical_conditions or 'None' }}</li>
+                        <li class="list-group-item">
+                            <strong>NID/Birth Certificate:</strong><br>
+                            <img src="{{ url_for('static', filename='medical/' + donor.nid_or_birth_certificate) }}"
+                                class="img-thumbnail" style="max-width: 200px;">
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Medical History Images:</strong><br>
+                            {% if donor.medical_history_images %}
+                                {% for img_path in donor.medical_history_images.split(',') %}
+                                    <img src="{{ url_for('static', filename='medical_docs/' + img_path.strip()) }}"
+                                        class="img-thumbnail me-2 mb-2" style="max-width: 150px;">
+                                {% endfor %}
+                            {% else %}
+                                No medical documents uploaded.
+                            {% endif %}
+                        </li>
+                        </ul>
+                    </div>
+
+                    <div class="modal-footer">
+                        <!-- Optional: You can add donor interaction features here -->
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+
+                    </div>
+                </div>
+                </div>
+                {% endif %}
+
+            </div>
         </div>
+
     </div>
 
-    <h5 class="mb-3">Blood Requests by {{ user.username }}</h5>
 
-    {% if blood_requests %}
-        {% for request in blood_requests %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <p><strong>Patient:</strong> {{ request.patient_name }}</p>
-                    <p><strong>Blood Group:</strong> {{ request.blood_group }}</p>
-                    <p><strong>Urgency:</strong> {{ request.urgency_status }}</p>
-                    <p><strong>Reason:</strong> {{ request.reason }}</p>
-                    <p><strong>Hospital:</strong> {{ request.hospital_name }}</p>
-                    <p><strong>Requested On:</strong> {{ request.created_at.strftime('%Y-%m-%d') }}</p>
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs mb-3" id="profileTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="requests-tab" data-bs-toggle="tab" data-bs-target="#requests"
+                    type="button" role="tab">Blood Requests</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="photos-tab" data-bs-toggle="tab" data-bs-target="#photos"
+                    type="button" role="tab">Photos</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Blood Requests Tab -->
+        <div class="tab-pane fade show active" id="requests" role="tabpanel">
+            <div id="user-posts-container">
+                {% if blood_requests %}
+                    <!-- Rendered via JS -->
+                {% else %}
+                    <p class="text-muted">No blood requests found for this user.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Photos Tab -->
+        <div class="tab-pane fade" id="photos" role="tabpanel">
+            <div class="row">
+                {% set all_images = [] %}
+                {% for request in blood_requests %}
+                    {% if request.images %}
+                        {% for img in request.images.split(',') %}
+                            {% if img.strip() %}
+                                <div class="col-6 col-md-3 mb-3">
+                                    <img src="{{ url_for('static', filename='profile_pics/' ~ img.strip()) }}" onclick="openSlider({{ request.id }}, 0)"
+                                         class="img-fluid rounded">
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                {% if not all_images %}
+                    <p class="text-muted">No photos available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript to Render Posts -->
+<script>
+    const currentUser = {
+        username: "{{ user.username }}",
+        is_donor: {{ "true" if user.is_donor else "false" }}
+    };
+
+    const requests = {{ blood_requests | tojson }};
+    const container = document.getElementById("user-posts-container");
+
+    if (requests && requests.length > 0) {
+        container.innerHTML = requests.map(request => createPostHTML(request)).join("");
+    }
+    function getUrgencyClass(status) {
+    return status === "Critical" ? "danger" : status === "Urgent" ? "warning" : "primary";
+}
+    function createPostHTML(request) {
+    console.log("Current User:", currentUser.username, "Is Donor:", currentUser.is_donor);
+    let images = [];
+    if (typeof request.images === "string" && request.images.trim() !== "") {
+        images = request.images.split(",").map(img => img.trim()).filter(img => img !== "");
+    }
+
+    let donorStatus = request.donors_assigned >= request.amount_needed
+        ? "All Donors Assigned"
+        : request.donors_assigned > 0
+            ? `${request.donors_assigned} out of ${request.amount_needed} Donors Assigned`
+            : "No Donor Yet";
+
+    let moreImages = images.length > 4 ? images.length - 4 : 0;
+    let imagesHTML = "";
+
+    if (images.length > 0) {
+        imagesHTML = `
+            <div class="post-images-container">
+                ${images.slice(0, 4).map((img, index) => `
+                    <div class="post-img-box">
+                        <img src="/static/profile_pics/${img}" class="post-img" onclick="openSlider(${request.id}, ${index})">
+                    </div>
+                `).join('')}
+                ${moreImages > 0 ? `
+                    <div class="post-img-box more-images" onclick="openSlider(${request.id}, 0)">
+                        +${moreImages} more
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    }
+
+    // 🧠 Construct options menu
+    let optionsMenuHTML = "";
+    if (currentUser.username === request.user.username) {
+        optionsMenuHTML = `
+            <button onclick="editPost(${request.id})"><i class="fas fa-edit"></i> Edit</button>
+            <button onclick="deletePost(${request.id})"><i class="fas fa-trash"></i> Delete</button>
+            <button onclick="markDonorFound(${request.id})"><i class="fas fa-check"></i> Donor Found</button>
+        `;
+    } 
+    
+
+    return `
+        <div class="card shadow-sm post-card mb-3" data-id="${request.id}" data-images='${JSON.stringify(images)}'>
+            <div class="post-options">
+                <button class="options-btn" onclick="toggleOptionsMenu(${request.id})">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <div class="options-menu" id="options-menu-${request.id}">
+                    ${optionsMenuHTML}
                 </div>
             </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted">No blood requests found for this user.</p>
-    {% endif %}
-</div>
+            <div class="post-header d-flex align-items-center">
+                <a href="/profile/${request.user.username}" class="fw-bold">
+                    <img src="/static/profile_pics/${request.user.profile_picture}" class="post-profile-pic">
+                </a>
+                <div class="post-user-info">
+                    <a href="/profile/${request.user.username}" class="fw-bold">${request.user.username}</a>
+                    <div class="text-muted small">${convertToUserTime(request.created_at)}</div>
+                </div>
+            </div>
+            <div class="post-body">
+                <p><strong>Patient Name:</strong> ${request.patient_name}</p>
+                <p><strong>Blood Group:</strong> ${request.blood_group}</p>
+                <p><strong>Hospital:</strong> ${request.hospital_name}</p>
+                <p><strong>Location:</strong> ${request.location}</p>
+                <p><strong>Required Date:</strong> ${request.required_date}</p>
+                <p><strong>Contact:</strong> ${request.contact_number}</p>
+                <p><strong>Urgency:</strong> <span class="badge bg-${getUrgencyClass(request.urgency_status)}">${request.urgency_status}</span></p>
+                <p><strong>Blood Needed:</strong> ${request.amount_needed} bag${request.amount_needed > 1 ? 's' : ''}</p>
+                <p>${request.reason}</p>
+                ${imagesHTML}
+            </div>
+            <div class="post-footer">
+                <div class="status-bar ${request.status === 'Fulfilled' ? 'donor-assigned' : ''}">
+                    <span id="assigned-donors-${request.id}">${donorStatus}</span>
+                </div>
+                <div class="post-actions">
+                    <button class="upvote-btn" data-id="${request.id}" onclick="upvotePost(${request.id})">
+                        <i class="fas fa-thumbs-up"></i> <span id="upvote-count-${request.id}">${request.upvotes || 0}</span>
+                    </button>
+                    <button class="comment-toggle-btn" onclick="toggleComments(${request.id})">
+                        <i class="fas fa-comment"></i> Comments
+                    </button>
+                </div>
+                <div class="comments-section" id="comments-${request.id}"></div>
+            </div>
+        </div>
+    `;
+}
+
+
+function convertToUserTime(utcString) {
+    const utcFixed = utcString.endsWith("Z") ? utcString : utcString + "Z";
+    const date = new Date(utcFixed);
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+function upvotePost(postId) {
+    fetch(`/upvote_request/${postId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Server responded with ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            document.getElementById(`upvote-count-${postId}`).innerText = data.upvotes;
+
+            let upvoteBtn = document.querySelector(`.upvote-btn[data-id="${postId}"]`);
+            if (upvoteBtn) {
+                upvoteBtn.classList.toggle("upvoted");
+            }
+        } else {
+            showCustomModal({
+                title: "Error",
+                message: data.error || "Unknown error occurred",
+                onConfirm: () => {}
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error upvoting post:", error);
+        showCustomModal({
+            title: "Upvote Failed",
+            message: error.message || "Something went wrong.",
+            onConfirm: () => {}
+        });
+    });
+}
+
+
+function sendFriendRequest(senderId, receiverId) {
+    fetch("/send_friend_request", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": getCSRFToken(),
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            sender_id: senderId,
+            receiver_id: receiverId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("Failed to send friend request.");
+    });
+}
+function unfriend(userId, friendId) {
+    if (confirm("Are you sure you want to unfriend this user?")) {
+        fetch('/unfriend', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ user_id: userId, friend_id: friendId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+}
+
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+</script>
+</script>
 {% endblock %}

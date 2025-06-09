@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Friend Requests{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <h3 class="mb-4">Pending Friend Requests</h3>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, msg in messages %}
+                <div class="alert alert-{{ category }}">{{ msg }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if requests %}
+        <div class="row">
+            {% for req in requests %}
+            <div class="col-md-6 mb-3">
+                <div class="card shadow-sm p-3 d-flex flex-row align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='profile_pics/' ~ req.sender.profile_picture) if req.sender.profile_picture else url_for('static', filename='default_avatar.png') }}"
+                             class="rounded-circle me-3" width="60" height="60" alt="Profile Picture">
+                        <div>
+                            <div class="small" style="color: var(--text-secondary);"></div>
+                            <a href="{{ url_for('profile', username=req.sender.username) }}" class="fw-bold fs-5 text-decoration-none">
+                                {{ req.sender.name or req.sender.username }}
+                            </a><br>
+                            
+                                Blood Group: {{ req.sender.blood_group or 'N/A' }}<br>
+                                Location: {{ req.sender.district }}, {{ req.sender.division }}
+                            
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-success btn-sm mb-1" onclick="handleRequest({{ req.id }}, 'accepted')">Accept</button>
+                        <br>
+                        <button class="btn btn-danger btn-sm" onclick="handleRequest({{ req.id }}, 'declined')">Decline</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">You have no pending friend requests.</div>
+    {% endif %}
+</div>
+
+<script>
+function handleRequest(requestId, action) {
+    fetch(`/handle_friend_request/${requestId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Something went wrong.");
+    });
+}
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+</script>
+
+{% endblock %}

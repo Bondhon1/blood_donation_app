@@ -2,7 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse, FriendRequest, ChatMessage
 from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm, AdminLoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -22,6 +22,7 @@ from PIL import Image
 from PIL import Image, ExifTags
 from flask_wtf.csrf import CSRFProtect
 from flask_socketio import SocketIO, join_room
+from sqlalchemy import func
 
 
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
@@ -58,12 +59,119 @@ def home():
             return redirect(url_for('news_feed', username=user.username))  # ✅ Pass username
     return render_template('home.html')
 
+@app.context_processor
+def inject_chat_users():
+    if 'user_id' in session:
+        current_user_id = session['user_id']
+
+        # Get all user IDs involved in messages with current user
+        messaged_user_ids = db.session.query(ChatMessage.sender_id).filter(ChatMessage.receiver_id == current_user_id)
+        received_user_ids = db.session.query(ChatMessage.receiver_id).filter(ChatMessage.sender_id == current_user_id)
+
+        related_user_ids = messaged_user_ids.union(received_user_ids).subquery()
+
+        # Get the actual user objects
+        chat_users = User.query.filter(User.id.in_(related_user_ids)).all()
+
+        # Get unread message counts per user
+        unread_counts = db.session.query(
+            ChatMessage.sender_id,
+            func.count().label("count")
+        ).filter(
+            ChatMessage.receiver_id == current_user_id,
+            ChatMessage.is_read == False
+        ).group_by(ChatMessage.sender_id).all()
+
+        unread_dict = {uid: count for uid, count in unread_counts}
+
+        # Attach unread_count to each user (build as dicts instead of model objects)
+        users = []
+        for user in chat_users:
+            users.append({
+                'id': user.id,
+                'username': user.username,
+                'profile_pic': user.profile_pic if hasattr(user, 'profile_pic') else None,  # Optional
+                'unread_count': unread_dict.get(user.id, 0)
+            })
+
+        # Calculate total unread count (for badge on "Chat")
+        total_unread_count = sum(unread_dict.values())
+
+        return dict(users=users, total_unread_count=total_unread_count)
+
+    return dict(users=[], total_unread_count=0)
+
+
 @socketio.on('join')
 def handle_join(data):
     user_id = data.get('user_id')
     if user_id:
         join_room(str(user_id))  # Use string in case user_id is int
         print(f"User {user_id} joined their socket room.")
+
+@app.route("/api/messages/<int:other_user_id>")
+def get_messages(other_user_id):
+    current_user_id = session.get("user_id")
+    if not current_user_id:
+        return jsonify([])
+
+    messages = ChatMessage.query.filter(
+        ((ChatMessage.sender_id == current_user_id) & (ChatMessage.receiver_id == other_user_id)) |
+        ((ChatMessage.sender_id == other_user_id) & (ChatMessage.receiver_id == current_user_id))
+    ).order_by(ChatMessage.timestamp).all()
+
+    return jsonify([{
+        "id": msg.id,
+        "sender_id": msg.sender_id,
+        "receiver_id": msg.receiver_id,
+        "content": msg.content,
+        "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+        "is_read": msg.is_read
+    } for msg in messages])
+
+
+@socketio.on("send_message")
+def handle_send_message(data):
+    sender_id = session.get("user_id")
+    receiver_id = data.get("receiver_id")
+    content = data.get("content")
+    sender_username = session.get("username")
+
+    if not sender_id or not receiver_id or not content:
+        return
+
+    msg = ChatMessage(sender_id=sender_id, receiver_id=receiver_id, content=content)
+    db.session.add(msg)
+    db.session.commit()
+
+    socketio.emit("receive_message", {
+        "sender_id": sender_id,
+        "receiver_id": receiver_id,
+        "content": content,
+        "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+        "is_read": False
+    }, room=str(receiver_id))
+    socketio.emit("new_chat_notification", {
+        "sender_id": sender_id,
+        "sender_username": sender_username
+    }, room=f"user_{receiver_id}")
+
+
+@app.route("/get_chat_users")
+def get_chat_users():
+    if "user_id" not in session:
+        return jsonify([])
+    users = User.query.filter(User.id != session['user_id']).all()
+    return jsonify([{"id": u.id, "username": u.username} for u in users])
+
+@app.route('/api/messages/<int:user_id>/mark_read', methods=['POST'])
+def mark_messages_read(user_id):
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    ChatMessage.query.filter_by(sender_id=user_id, receiver_id=session['user_id'], is_read=False).update({ 'is_read': True })
+    db.session.commit()
+    return jsonify({'success': True})
+
 
 ### ✅ API: Check Username & Email Availability
 @app.route('/check_user', methods=['POST'])
@@ -254,11 +362,14 @@ def news_feed(username):
 
         # For admins, just show latest blood requests without sorting
         sorted_requests = BloodRequest.query.order_by(BloodRequest.created_at.desc()).limit(20).all()
-
+        current_user = User.query.get(session['user_id'])
+        users = User.query.filter(User.id != current_user.id).all()
         return render_template(
             'news_feed.html',
             username=username,
             user=user,
+            users=users,
+            current_user=current_user,
             donation_requests=sorted_requests,
             notifications=[],  # Admins likely don’t have notifications
             user_id=user_id
@@ -556,11 +667,28 @@ def inject_user():
 
 @app.route('/profile/<username>', methods=['GET', 'POST'])
 def profile(username):
+    if 'user_id' not in session:
+        flash("Please log in to view profiles.", "warning")
+        return redirect(url_for('login'))
     user = User.query.filter_by(username=username).first_or_404()
+    # Add this after fetching `user`:
+    is_friend = False
+    if session.get('user_id') and session.get('user_id') != user.id:
+        existing_friend = FriendRequest.query.filter(
+            db.or_(
+                db.and_(FriendRequest.sender_id == session['user_id'], FriendRequest.receiver_id == user.id),
+                db.and_(FriendRequest.sender_id == user.id, FriendRequest.receiver_id == session['user_id'])
+            ),
+            FriendRequest.status == 'accepted'
+        ).first()
+        is_friend = existing_friend is not None
+
     donor = DonorApplication.query.filter_by(user_id=user.id).first()
     blood_requests = BloodRequest.query.filter_by(user_id=user.id).all()
     
     divisions = Divisions.query.all()
+
+    blood_requests_data = [req.to_dict() for req in blood_requests]
 
     # Check if the session user is the same as the requested profile
     if session.get("username") == username:
@@ -580,9 +708,181 @@ def profile(username):
         return render_template(
             'user_profile.html',
             user=user,
-            blood_requests=blood_requests,
-            donor=donor
+            blood_requests=blood_requests_data,
+            donor=donor,
+            session_username=session.get("username"),
+            is_friend=is_friend,
         )
+    
+@app.route("/send_friend_request", methods=["POST"])
+def send_friend_request():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "You must be logged in."})
+
+    data = request.get_json()
+    sender_id = session['user_id']
+    receiver_id = data.get("receiver_id")
+
+    if not receiver_id or sender_id == receiver_id:
+        return jsonify({"success": False, "message": "Invalid request."})
+
+    receiver = User.query.get(receiver_id)
+    if not receiver:
+        return jsonify({"success": False, "message": "User not found."})
+
+    # 1. Check if already friends via association table
+    sender = User.query.get(sender_id)
+    if receiver in sender.friends:
+        return jsonify({"success": False, "message": "You are already friends."})
+
+    # 2. Check if a friend request (pending or accepted) exists either way
+    existing_request = FriendRequest.query.filter(
+        db.or_(
+            db.and_(FriendRequest.sender_id == sender_id, FriendRequest.receiver_id == receiver_id),
+            db.and_(FriendRequest.sender_id == receiver_id, FriendRequest.receiver_id == sender_id)
+        ),
+        FriendRequest.status.in_(['pending', 'accepted'])
+    ).first()
+    if existing_request:
+        return jsonify({"success": False, "message": "Friend request already exists."})
+
+    # If passed above, create new request
+    new_request = FriendRequest(sender_id=sender_id, receiver_id=receiver_id)
+    db.session.add(new_request)
+    db.session.flush()  # So sender can be queried before commit
+
+    # Create and send notification
+    notification = Notification(
+        recipient_id=receiver_id,
+        sender_id=sender_id,
+        message=f"{sender.name or sender.username} has sent you a friend request.",
+        link=url_for('friend_requests'),  # Assuming this route lists pending requests
+        is_read=False
+    )
+    db.session.add(notification)
+    db.session.commit()
+
+    # Emit real-time notification
+    socketio.emit('new_notification', {
+        'recipient_id': receiver_id,
+        'message': notification.message,
+        'link': notification.link,
+        'notif_id': notification.id
+    }, room=str(receiver_id))
+
+    return jsonify({"success": True, "message": "Friend request sent."})
+
+
+@app.route('/friend_requests')
+def friend_requests():
+    if 'user_id' not in session:
+        flash("Login required.", "warning")
+        return redirect(url_for('login'))
+
+    pending_requests = FriendRequest.query.filter_by(receiver_id=session['user_id'], status='pending').all()
+    return render_template("friend_requests.html", requests=pending_requests)
+
+
+@app.route("/handle_friend_request/<int:request_id>", methods=["POST"])
+def handle_friend_request(request_id):
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "Login required."})
+
+    data = request.get_json()
+    action = data.get("action")
+    user_id = session["user_id"]
+
+    friend_request = FriendRequest.query.get_or_404(request_id)
+    if friend_request.receiver_id != user_id:
+        return jsonify({"success": False, "message": "Unauthorized."})
+
+    sender = User.query.get(friend_request.sender_id)
+    receiver = User.query.get(friend_request.receiver_id)
+
+    if action == "accepted":
+        friend_request.status = "accepted"
+
+        # Check if they are already friends before appending
+        if receiver not in sender.friends:
+            sender.friends.append(receiver)
+        if sender not in receiver.friends:
+            receiver.friends.append(sender)
+
+        # Send notification to sender
+        notification = Notification(
+            recipient_id=sender.id,
+            sender_id=receiver.id,
+            message=f"{receiver.name or receiver.username} accepted your friend request.",
+            link=url_for('profile', username=receiver.username),
+            is_read=False
+        )
+        db.session.add(notification)
+        db.session.commit()
+
+        socketio.emit('new_notification', {
+            'recipient_id': sender.id,
+            'message': notification.message,
+            'link': notification.link,
+            'notif_id': notification.id
+        }, room=str(sender.id))
+
+        msg = "Friend request accepted."
+
+    elif action == "declined":
+        friend_request.status = "declined"
+        db.session.commit()
+        msg = "Friend request declined."
+
+    else:
+        return jsonify({"success": False, "message": "Invalid action."})
+
+    return jsonify({"success": True, "message": msg})
+
+@app.route("/view_friends/<username>")
+def view_friends(username):
+    if 'user_id' not in session or session.get('username') != username:
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(username=username).first_or_404()
+    friends = user.friends  # assuming you have a `friends` relationship
+
+    return render_template("view_friends.html", user=user, friends=friends)
+
+@app.route('/unfriend', methods=['POST'])
+def unfriend():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Login required.'})
+
+    data = request.get_json()
+    user_id = data.get('user_id')
+    friend_id = data.get('friend_id')
+
+    if user_id != session['user_id']:
+        return jsonify({'success': False, 'message': 'Invalid request.'})
+
+    # 1. Delete all FriendRequest rows
+    friendships = FriendRequest.query.filter(
+        db.or_(
+            db.and_(FriendRequest.sender_id == user_id, FriendRequest.receiver_id == friend_id),
+            db.and_(FriendRequest.sender_id == friend_id, FriendRequest.receiver_id == user_id)
+        )
+    ).all()
+
+    for friendship in friendships:
+        db.session.delete(friendship)
+
+    # 2. Remove from friends_association table
+    user = User.query.get(user_id)
+    friend = User.query.get(friend_id)
+    if friend in user.friends:
+        user.friends.remove(friend)
+    if user in friend.friends:
+        friend.friends.remove(user)
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Unfriended successfully and all related records cleared.'})
+
+
     
 @app.route('/get_districts/<int:division_id>')
 def get_districts(division_id):

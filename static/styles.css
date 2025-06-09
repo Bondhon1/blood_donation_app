@@ -12,6 +12,7 @@
     --dropdown-bg: white;
     --dropdown-text: black;
     --box-shadow: rgba(0, 0, 0, 0.1);
+    --text-secondary: #6c757d;
 }
 
 /* 🌙 Dark Mode Variables */
@@ -28,6 +29,7 @@
     --dropdown-bg: #222;
     --dropdown-text: #e0e0e0;
     --box-shadow: rgba(255, 255, 255, 0.1);
+    --text-secondary: #cccccc;
 }
 /* General styles */
 body {
@@ -1468,6 +1470,37 @@ button:hover {
      /* Semi-transparent background */
     z-index: 999;
 }
+/* Fix modal not closing or page staying dark */
+.modal-backdrop {
+  z-index: 1040 !important;
+}
+
+.modal {
+  z-index: 1050 !important;
+}
+
+/* Prevent global brightness/filter issues */
+body.modal-open {
+  overflow: hidden !important;
+  filter: none !important;
+}
+.li {
+    color : var(--text-color);
+    background-color: var(--card-bg);
+}
+.list-group-item {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    text-align: left; /* This aligns text to the left */
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+body.dark-mode .card .text-muted {
+    color: #bbbbbb !important;
+}
+
 .edit-img-box {
     display: inline-block;
     position: relative;
@@ -1829,4 +1862,12 @@ html, body {
         width: 90vw;
         right: 5%;
     }
+}
+.button-row {
+    display: flex;
+    flex-direction: row !important;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
