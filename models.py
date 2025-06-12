@@ -116,10 +116,18 @@ class ChatMessage(db.Model):  # Renamed from Message
     receiver_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
     content = db.Column(db.Text, nullable=False)
     images = db.Column(db.Text, nullable=True)
-    attachments = db.Column(db.Text, nullable=True)
+    attachments = db.relationship('ChatAttachment', backref='message', lazy=True)
+
     timestamp = db.Column(db.DateTime, server_default=db.func.now())
     is_read = db.Column(db.Boolean, default=False)
 
+class ChatAttachment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    filepath = db.Column(db.String(500), nullable=False)
+    filetype = db.Column(db.String(50), nullable=False)  # image, file, etc.
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
    
 
 

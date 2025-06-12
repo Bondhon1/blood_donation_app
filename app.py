@@ -36,7 +36,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
-socketio = SocketIO(app, cors_allowed_origins="*")  # ← ADD THIS HERE
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+
 
 
 
