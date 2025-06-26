@@ -91,7 +91,8 @@ def inject_chat_users():
             users.append({
                 'id': user.id,
                 'username': user.username,
-                'profile_pic': user.profile_pic if hasattr(user, 'profile_pic') else None,  # Optional
+                'profile_pic': url_for('static', filename='profile_pics/' + (user.profile_picture or 'default.jpg')),
+
                 'unread_count': unread_dict.get(user.id, 0)
             })
 
