@@ -1885,16 +1885,20 @@ html, body {
 .custom-chat-modal {
   position: fixed;
   bottom: 0;
-  right: 20px;
-  width: 300px;
-  max-height: 400px;
-  display: none;
+  right: 30px;
+
+  width: 350px;         /* 10% wider than original */
+  height: 500px;        /* Set fixed height to force actual size */
+  max-height: 90vh;     /* Optional: allow up to 90% of screen */
+
+  display: flex;
   flex-direction: column;
   z-index: 1055;
   background-color: var(--bg-color);
   border-radius: 10px 10px 0 0;
   overflow: hidden;
 }
+
 
 
 .chat-header {
@@ -1904,7 +1908,7 @@ html, body {
 .chat-body {
   flex: 1;
   overflow-y: auto;
-  max-height: 250px;
+  
 }
 
 .chat-footer input {
@@ -1921,3 +1925,154 @@ body.dark-mode .btn-close {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%23ffffff' viewBox='0 0 16 16'%3E%3Cpath d='M2.146 2.146a.5.5 0 0 1 .708 0L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
 }
 
+.message-bubble {
+  position: relative;
+  cursor: default;
+  max-width: 75%;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+.message-bubble::after {
+  content: attr(title);
+  position: absolute;
+  bottom: -1.3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+
+.message-bubble:hover::after {
+  opacity: 1;
+}
+.message-bubble:hover .custom-timestamp {
+  opacity: 1;
+}
+.custom-timestamp {
+  position: absolute;
+  bottom: -1.3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 5;
+}
+.custom-chat-input {
+  border-radius: 20px;
+  padding-left: 15px;
+  padding-right: 15px;
+  height: 38px;
+  font-size: 0.9rem;
+  background-color: var(--input-bg, #f8f9fa);
+  color: var(--text-color, #000);
+  border: 1px solid var(--border-color, #ccc);
+}
+
+.emoji-picker {
+  position: absolute;
+  bottom: 42px;
+  left: 0;
+  background-color: var(--bg-color, white);
+  max-width: 230px;
+  font-size: 1.2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  z-index: 999;
+  cursor: pointer;
+}
+
+body.dark-mode .emoji-picker {
+  background-color: #2b2b2b;
+  color: #fff;
+  border: 1px solid #444;
+}
+.emoji-keyboard {
+  border: 1px solid var(--border-color);
+  padding: 8px 8px 4px 8px;
+  width: 348px;              /* Wider to accommodate more tabs */
+  height: 250px;             /* Fixed height */
+  background: var(--bg-color);
+  border-radius: 7px;
+  position: absolute;
+  bottom: 60px;
+  left: 10px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+}
+.emoji-tabs {
+  display: flex;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 6px;
+  gap: 2px;
+  /* No horizontal scroll, tabs will shrink to fit */
+  overflow-x: hidden;
+}
+.emoji-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 0 2px 0;
+  text-align: center;
+  cursor: pointer;
+  font-size: 22px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-color);
+  border-radius: 5px 5px 0 0;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.emoji-tab.active {
+  background: var(--card-bg, #e0e0e0);
+  color: #0d6efd;
+  font-weight: bold;
+}
+.emoji-tab-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 44px;
+  overflow-y: auto;    /* Vertical scroll if needed */
+  padding-right: 2px;  /* For scrollbar space */
+}
+.emoji-btn {
+  font-size: 22px;
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.emoji-btn:hover {
+  background: var(--btn-hover-bg);
+}
+.d-none {
+  display: none !important;
+}
