@@ -10,6 +10,7 @@ from flask_migrate import Migrate
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 import os
+import base64
 from werkzeug.utils import secure_filename
 from flask import current_app
 import requests
@@ -39,7 +40,8 @@ migrate = Migrate(app, db)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
 
 
-
+CIMAGE_UPLOAD_FOLDER = 'static/chat_images'
+os.makedirs(CIMAGE_UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
@@ -128,6 +130,7 @@ def get_messages(other_user_id):
         "receiver_id": msg.receiver_id,
         "content": msg.content,
         "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+        "image_url": url_for('static', filename=f'chat_images/{msg.images}') if msg.images else None,
         "is_read": msg.is_read
     } for msg in messages])
 
@@ -157,6 +160,58 @@ def handle_send_message(data):
         "sender_id": sender_id,
         "sender_username": sender_username
     }, room=f"user_{receiver_id}")
+
+@socketio.on("send_image")
+def handle_send_image(data):
+    sender_id = session.get('user_id')
+    sender_username = session.get('username')
+    receiver_id = data.get('receiver_id')
+    image_data = data.get('image_data')
+    filename = data.get('filename')
+    filetype = data.get('filetype')
+
+    if not all([sender_id, receiver_id, image_data]):
+        return
+
+    try:
+        # Generate unique filename
+        unique_filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{filename}"
+        filepath = os.path.join(CIMAGE_UPLOAD_FOLDER, unique_filename)
+        
+        # Extract base64 data
+        if ';base64,' in image_data:
+            header, data_str = image_data.split(';base64,')
+            image_data = data_str
+        
+        # Save image
+        with open(filepath, 'wb') as f:
+            f.write(base64.b64decode(image_data))
+        
+        # Create message record
+        msg = ChatMessage(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            content=f"[Image] {filename}",
+            images=unique_filename
+        )
+        db.session.add(msg)
+        db.session.commit()
+        
+        # Emit to receiver
+        socketio.emit("receive_image", {
+            "sender_id": sender_id,
+            "receiver_id": receiver_id,
+            "image_data": data.get('image_data'),  # Original base64 string
+            "filename": filename,
+            "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        }, room=str(receiver_id))
+        socketio.emit("new_chat_notification", {
+            "sender_id": sender_id,
+            "sender_username": sender_username
+        }, room=f"user_{receiver_id}")
+        
+    except Exception as e:
+        print(f"Error handling image: {str(e)}")
 
 
 @app.route("/get_chat_users")
@@ -2115,4 +2170,4 @@ def admin_logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    socketio.run(app, host="0.0.0.0", port=10000,debug=True)
+    socketio.run(app, host="0.0.0.0", port = 10000,debug=True)
