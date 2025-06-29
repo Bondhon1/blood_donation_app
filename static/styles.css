@@ -1897,8 +1897,21 @@ html, body {
   background-color: var(--bg-color);
   border-radius: 10px 10px 0 0;
   overflow: hidden;
+
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
+.custom-chat-modal {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.custom-chat-modal .chat-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 
 
 .chat-header {
@@ -1908,7 +1921,8 @@ html, body {
 .chat-body {
   flex: 1;
   overflow-y: auto;
-  
+  min-width: 0; /* Add this */
+  max-width: 100%;;
 }
 
 .chat-footer input {
@@ -2076,3 +2090,74 @@ body.dark-mode .emoji-picker {
 .d-none {
   display: none !important;
 }
+
+#imagePreviewModal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.85);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+
+#imageScrollContainer {
+  max-width: 90vw;
+  max-height: 70vh;
+  overflow: auto;
+  position: relative;
+  z-index: 2001; /* Below buttons */
+}
+
+#previewImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  transform-origin: 0 0;
+  transition: transform 0.2s;
+}
+
+#closePreviewBtn {
+  position: fixed;
+  top: 20px;
+  right: 30px;
+  color: white;
+  font-size: 40px;
+  cursor: pointer;
+  z-index: 2010; /* Above everything */
+}
+
+.control-buttons {
+  position: fixed;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2010;
+}
+
+.control-buttons button {
+  background: #f8f9fa;
+  border: 1px solid #ced4da;
+  color: #212529;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s, border 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-buttons button:hover {
+  background: #e2e6ea;
+  border-color: #adb5bd;
+}
+

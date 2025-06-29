@@ -269,6 +269,28 @@
       </div>
     </div>
   </div>    
+<div id="imagePreviewModal">
+  <span id="closePreviewBtn">&times;</span>
+  
+  <div id="imageScrollContainer">
+    <img id="previewImage" src="" alt="Zoomed preview">
+  </div>
+  
+  <div class="control-buttons">
+    <button id="zoomOutBtn" class="btn-control">
+      <i class="zoom-icon">−</i> Zoom Out
+    </button>
+    <button id="resetZoomBtn" title="Reset Zoom">⟳</button>
+    <button id="downloadBtn" class="btn-control">
+      <i class="download-icon">↓</i> Download
+    </button>
+    <button id="zoomInBtn" class="btn-control">
+      <i class="zoom-icon">+</i> Zoom In
+    </button>
+  </div>
+</div>
+
+
 
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <script>
@@ -356,24 +378,79 @@ document.addEventListener("DOMContentLoaded", function () {
     div.className = `text-${isSender ? 'end' : 'start'} my-1 message-wrapper`;
 
     const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  
-  let messageContent;
-  if (imageUrl) {
-    messageContent = `<img src="${imageUrl}" alt="Chat image" style="max-width: 200px; max-height: 200px; display: block;">`;
-  } else {
-    messageContent = content;
+
+    let messageContent;
+    if (imageUrl) {
+      // Make image clickable for preview
+      messageContent = `<img src="${imageUrl}" alt="Chat image" class="chat-img-preview" style="max-width: 200px; max-height: 200px; display: block; cursor: pointer;">`;
+    } else {
+      messageContent = content;
+    }
+
+    div.innerHTML = `
+      <div class="position-relative d-inline-block message-bubble bg-${isSender ? 'primary' : 'secondary'} text-white px-2 py-1 rounded">
+        ${messageContent}
+        <div class="custom-timestamp">${timeStr}</div>
+      </div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+
+    // Add event listener for image click
+    if (imageUrl) {
+      const img = div.querySelector('.chat-img-preview');
+      img.addEventListener('click', function () {
+        openImagePreview(imageUrl);
+      });
+    }
   }
 
-  div.innerHTML = `
-    <div class="position-relative d-inline-block message-bubble bg-${isSender ? 'primary' : 'secondary'} text-white px-2 py-1 rounded">
-      ${messageContent}
-      <div class="custom-timestamp">${timeStr}</div>
-    </div>
-  `;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  // Image Preview Modal Functionality
+  let currentZoom = 1;
 
+  function openImagePreview(url) {
+    const modal = document.getElementById('imagePreviewModal');
+    const img = document.getElementById('previewImage');
+    img.src = url;
+    img.style.transform = 'scale(1)';
+    currentZoom = 1;
+    modal.style.display = 'flex';
   }
+
+  document.getElementById('closePreviewBtn').onclick = function () {
+    document.getElementById('imagePreviewModal').style.display = 'none';
+  };
+
+  // Update your zoom buttons:
+  document.getElementById('zoomInBtn').onclick = function() {
+    currentZoom = Math.min(currentZoom + 0.2, 3);
+    applyZoom(currentZoom);
+  };
+
+  document.getElementById('zoomOutBtn').onclick = function() {
+    currentZoom = Math.max(currentZoom - 0.2, 0.5);
+    applyZoom(currentZoom);
+  };
+  document.getElementById('resetZoomBtn').onclick = function() {
+    currentZoom = defaultZoom;
+    applyZoom(currentZoom);
+  };
+
+
+  document.getElementById('downloadBtn').onclick = function () {
+    const img = document.getElementById('previewImage');
+    const link = document.createElement('a');
+    link.href = img.src;
+    link.download = 'chat-image.jpg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Optional: Close modal on background click
+  document.getElementById('imagePreviewModal').addEventListener('click', function (e) {
+    if (e.target === this) this.style.display = 'none';
+  });
 
 
   function sendChatMessage() {
@@ -488,6 +565,26 @@ document.addEventListener("DOMContentLoaded", function () {
       showNewMessageNotification(data.sender_id, data.sender_username);
     }
   });
+  chatInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
+  });
+
+  const defaultZoom = 1;
+
+  function applyZoom(scale) {
+    const img = document.getElementById('previewImage');
+    img.style.transform = `scale(${scale})`;
+    // Optionally center image after zoom
+    const container = document.getElementById('imageScrollContainer');
+    container.scrollTo({
+      top: (img.clientHeight * scale - container.clientHeight) / 2,
+      left: (img.clientWidth * scale - container.clientWidth) / 2,
+      behavior: 'auto'
+    });
+  }
 
 
   window.openChatModal = openChatModal;
