@@ -56,13 +56,13 @@
                         <div id="searchResults" class="search-popup"></div>
                     </div>
                     {% endif %}
-
-                    <!-- Right: Mobile Search + Menu -->
-                    <div class="d-flex d-sm-none align-items-center ms-auto">
-                        {% if session.get('user_id') or session.get('admin_username') %}
+                    {% if session.get('user_id') or session.get('admin_username') %}
                             <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 120px;">
                             <div id="searchResults" class="search-popup"></div>
                         {% endif %}
+                    <!-- Right: Mobile Search + Menu -->
+                    <div class="d-flex d-sm-none align-items-center ms-auto">
+                        
                         <button class="btn btn-outline-light btn-sm" id="mobileMenuToggle">
                             <i class="fas fa-bars"></i>
                         </button>
@@ -224,7 +224,6 @@
     <div id="slider-content" class="slider-content"></div>
 </div>
 
-<!-- Custom Chat Modal (No Bootstrap modal classes) -->
 <div id="chatModal" class="custom-chat-modal card shadow-lg" style="display: none;">
   <div class="chat-header d-flex align-items-center justify-content-between p-2 border-bottom">
     <div class="d-flex align-items-center">
@@ -234,27 +233,36 @@
     <button type="button" class="btn-close" onclick="closeChatModal()" aria-label="Close"></button>
   </div>
   <div class="chat-body p-2" id="chatMessages"></div>
-<div class="chat-footer d-flex align-items-center border-top p-2" style="gap: 0.4rem; position: relative;">
-  <button type="button" class="btn btn-light d-flex justify-content-center align-items-center p-2" id="emojiBtn" style="width: 38px; height: 38px;">
-    😊
-  </button>
-  <div id="emojiKeyboard" class="emoji-keyboard d-none">
-    <div class="emoji-tabs" id="emojiTabs"></div>
-    <div class="emoji-tab-content" id="emojiTabContent"></div>
+  <div class="chat-footer d-flex align-items-center border-top p-2" style="gap: 0.4rem; position: relative;">
+    <button type="button" class="btn btn-light d-flex justify-content-center align-items-center p-2" id="emojiBtn" style="width: 38px; height: 38px;">
+      😊
+    </button>
+    <div id="emojiKeyboard" class="emoji-keyboard d-none">
+      <div class="emoji-tabs" id="emojiTabs"></div>
+      <div class="emoji-tab-content" id="emojiTabContent"></div>
+    </div>
+    
+    <!-- Document Attachment Button -->
+    <button type="button" id="docUploadBtn" class="btn btn-light d-flex justify-content-center align-items-center p-2" style="width: 38px; height: 38px;">
+      <img src="/static/icons/file.svg" alt="Attachment" width="16" height="16">
+    </button>
+    <input type="file" id="docInput" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx" multiple style="display: none;">
+    
+    <!-- Image Upload Button -->
+    <button type="button" id="imageUploadBtn" class="btn btn-light d-flex justify-content-center align-items-center p-2" style="width: 38px; height: 38px;">
+      <img src="/static/icons/image.svg" alt="Image" width="16" height="16">
+    </button>
+    <input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
+
+    <input type="text" class="form-control custom-chat-input" id="chatInput" placeholder="Type a message..." style="flex: 1 1 auto; min-width: 0;" />
+    
+    <!-- Send Button with unique ID -->
+    <button class="btn btn-primary d-flex justify-content-center align-items-center p-2" id="sendChatBtn" style="width: 38px; height: 38px;">
+      <img src="/static/icons/send.svg" alt="Send" width="16" height="16">
+    </button>
   </div>
-  <!-- Add this inside chat-footer div -->
-<button type="button" id="imageUploadBtn" class="btn btn-light d-flex justify-content-center align-items-center p-2" style="width: 38px; height: 38px;">
-    <img src="/static/icons/image.svg" alt="Image" width="16" height="16">
-</button>
-<input type="file" id="imageInput" accept="image/*" multiple style="display: none;">
-
-  <input type="text" class="form-control custom-chat-input" id="chatInput" placeholder="Type a message..." style="flex: 1 1 auto; min-width: 0;" />
-  <button class="btn btn-primary d-flex justify-content-center align-items-center p-2" id="sendChatBtn" style="width: 38px; height: 38px;">
-    <img src="/static/icons/send.svg" alt="Send" width="16" height="16">
-  </button>
 </div>
 
-</div>
 
   <div class="modal fade" id="postModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
@@ -296,7 +304,7 @@
 <script>
 const socket = io();
 document.addEventListener("DOMContentLoaded", function () {
-  
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
   let currentUserId = {{ session['user_id'] }};
   let activeChatUserId = null;
 
@@ -304,24 +312,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function openChatModal(userId, username, profilePic = "/static/profile_pics/default.jpg") {
     activeChatUserId = userId;
+    document.getElementById('chatModal').dataset.receiverId = userId; 
     document.getElementById('chatModalTitle').textContent = `Chat with ${username}`;
     document.getElementById('chatMessages').innerHTML = '';
     document.getElementById('chatReceiverPic').src = profilePic;
-    console.log(profilePic)
+    
 
     // Fetch and render chat history
     fetch(`/api/messages/${userId}`)
       .then(res => res.json())
       .then(messages => {
         messages.forEach(msg => {
-          appendMessage(
-            msg.content,
-            msg.sender_id === currentUserId,
-            msg.timestamp,
-            msg.image_url  // Pass image URL if exists
-          );
+          // Render images
+          if (msg.image_url) {
+            appendMessage('', msg.sender_id === currentUserId, msg.timestamp, msg.image_url);
+          }
+          // Render attachments
+          if (msg.attachments && msg.attachments.length > 0) {
+            msg.attachments.forEach(att => {
+              displayDocumentPreview({
+                name: att.filename,
+                download_url: att.url,
+                size: att.size // If available
+              }, msg.sender_id === currentUserId);
+            });
+          }
+          // Render text (if not just [File])
+          if (msg.content && !msg.image_url && (!msg.attachments || msg.attachments.length === 0)) {
+            appendMessage(msg.content, msg.sender_id === currentUserId, msg.timestamp);
+          }
         });
       });
+
 
     // Mark messages as read in DB and hide badge
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
@@ -535,7 +557,16 @@ document.addEventListener("DOMContentLoaded", function () {
     imageInput.addEventListener('change', function(e) {
       const files = e.target.files;
       for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+          const file = files[i];
+          if (file.size > MAX_FILE_SIZE) {
+          // Show error in chat
+          appendMessage(
+            `❗ File "${file.name}" is too large (max 10 MB).`,
+            true, // isSender
+            new Date().toLocaleString()
+          );
+          continue;
+        }
         if (!file.type.match('image.*')) continue;
         
         const reader = new FileReader();
@@ -585,6 +616,124 @@ document.addEventListener("DOMContentLoaded", function () {
       behavior: 'auto'
     });
   }
+
+  // Inside DOMContentLoaded event listener
+
+  // Document Attachment Handling (fixed)
+    document.getElementById('docUploadBtn').addEventListener('click', () => {
+        document.getElementById('docInput').click();
+    });
+
+    document.getElementById('docInput').addEventListener('change', function(e) {
+      const files = e.target.files;
+      if (!files.length) return;
+      
+      const activeChatUserId = document.querySelector('#chatModal').dataset.receiverId;
+      
+      for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.size > MAX_FILE_SIZE) {
+            appendMessage(
+              `❗ File "${file.name}" is too large (max 10 MB).`,
+              true,
+              new Date().toLocaleString()
+            );
+            continue;
+          }
+          const reader = new FileReader();
+          
+          reader.onload = function(event) {
+              // Include file size in preview
+              displayDocumentPreview({
+                  name: file.name,
+                  size: file.size,
+                  download_url: URL.createObjectURL(file) // Temp URL
+              }, true);
+              
+              socket.emit('send_attachment', {
+                  receiver_id: activeChatUserId,
+                  file_data: event.target.result,
+                  filename: file.name,
+                  filetype: file.type
+              });
+          };
+          
+          reader.readAsDataURL(file);
+      }
+      e.target.value = '';
+  });
+
+
+  // Updated receive_attachment handler
+  // Handle received attachments
+  socket.on('receive_attachment', (data) => {
+      const currentUserId = parseInt("{{ session['user_id'] }}");
+      const activeChatUserId = document.querySelector('#chatModal')?.dataset.receiverId;
+
+      // Only show notification if NOT viewing this chat
+      if (!activeChatUserId || activeChatUserId != data.sender_id) {
+          showNewMessageNotification(data.sender_id, data.sender_username);
+      }
+
+      // Always update modal if active chat matches
+      if (activeChatUserId && data.sender_id == activeChatUserId) {
+          displayDocumentPreview({
+              name: data.filename,
+              download_url: data.download_url,
+              size: data.file_size
+          }, data.sender_id === currentUserId);
+      }
+  });
+
+
+
+  // Define the formatFileSize function
+  function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  // Updated displayDocumentPreview function
+  function displayDocumentPreview(file, isSender) {
+    const chatMessages = document.getElementById('chatMessages');
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `d-flex mb-2 ${isSender ? 'justify-content-end' : 'justify-content-start'}`;
+    
+    // File size display (if available)
+    const fileSizeHtml = file.size ? `<div class="text-muted small">${formatFileSize(file.size)}</div>` : '';
+    
+    messageDiv.innerHTML = `
+      <div class="card border-0 shadow-sm" style="max-width: 80%;">
+        <div class="card-body p-2 d-flex align-items-center">
+          <div class="bg-light rounded p-2 me-2">
+            <i class="bi bi-file-earmark-text fs-4"></i>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-medium text-truncate">${file.name}</div>
+            ${fileSizeHtml}
+          </div>
+          <a href="${file.download_url}" 
+            download="${file.name}" 
+            class="stretched-link download-link ms-2" 
+            style="z-index: 1">
+            <i class="bi bi-download"></i>
+          </a>
+        </div>
+        <div class="card-footer bg-transparent border-0 pt-0 text-end">
+          <small class="text-muted">${timeStr}</small>
+        </div>
+      </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
 
 
   window.openChatModal = openChatModal;

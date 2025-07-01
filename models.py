@@ -126,7 +126,8 @@ class ChatAttachment(db.Model):
     message_id = db.Column(db.Integer, db.ForeignKey('chat_message.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     filepath = db.Column(db.String(500), nullable=False)
-    filetype = db.Column(db.String(50), nullable=False)  # image, file, etc.
+    filetype = db.Column(db.String(50), nullable=False)  #file, etc.
+    url = db.Column(db.String(500), nullable=True)  # ADD THIS LINE
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
    
 

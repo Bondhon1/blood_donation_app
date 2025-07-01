@@ -2,7 +2,7 @@ import eventlet
 eventlet.monkey_patch()
 from flask import Flask, render_template, redirect, url_for, flash, session, request, jsonify, abort
 from config import Config
-from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse, FriendRequest, ChatMessage
+from models import db, User, BloodRequest, Admin, Divisions, Districts, Upazilas, Comment, BloodRequestUpvote, DonorApplication, Reply, CommentLike, ReplyLike, Report, Referral, Notification, DonorResponse, FriendRequest, ChatMessage, ChatAttachment
 from forms import RegistrationForm, LoginForm, BloodRequestForm, DonorApplicationForm, AdminLoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_sqlalchemy import SQLAlchemy
@@ -24,26 +24,32 @@ from PIL import Image, ExifTags
 from flask_wtf.csrf import CSRFProtect
 from flask_socketio import SocketIO, join_room
 from sqlalchemy import func
+import uuid
+from flask import send_from_directory
 
-
+ATTACHMENT_UPLOAD_FOLDER = 'static/chat_attachments'
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(ATTACHMENT_UPLOAD_FOLDER):
+    os.makedirs(ATTACHMENT_UPLOAD_FOLDER)
 
 app = Flask(__name__)
 csrf = CSRFProtect(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
+
 #app.config['SERVER_NAME'] = '127.0.0.1:10000'
 app.config.from_object(Config)
 db.init_app(app)
 migrate = Migrate(app, db) 
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+socketio = SocketIO(app, max_http_buffer_size=10 * 1024 * 1024, async_mode='eventlet', cors_allowed_origins="*")
 
 
 CIMAGE_UPLOAD_FOLDER = 'static/chat_images'
 os.makedirs(CIMAGE_UPLOAD_FOLDER, exist_ok=True)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'}
 
 
 def allowed_file(filename):
@@ -131,7 +137,11 @@ def get_messages(other_user_id):
         "content": msg.content,
         "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
         "image_url": url_for('static', filename=f'chat_images/{msg.images}') if msg.images else None,
-        "is_read": msg.is_read
+        "is_read": msg.is_read,
+        "attachments": [{
+            "filename": att.filename,
+            "url": msg.attachments[0].url  # DATABASE-STORED URL
+        } for att in msg.attachments] if msg.attachments else []
     } for msg in messages])
 
 
@@ -175,7 +185,7 @@ def handle_send_image(data):
 
     try:
         # Generate unique filename
-        unique_filename = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{filename}"
+        unique_filename = f"{datetime.now().astimezone(timezone.utc).strftime('%Y%m%d%H%M%S%f')}_{filename}"
         filepath = os.path.join(CIMAGE_UPLOAD_FOLDER, unique_filename)
         
         # Extract base64 data
@@ -203,7 +213,7 @@ def handle_send_image(data):
             "receiver_id": receiver_id,
             "image_data": data.get('image_data'),  # Original base64 string
             "filename": filename,
-            "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            "timestamp": datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }, room=str(receiver_id))
         socketio.emit("new_chat_notification", {
             "sender_id": sender_id,
@@ -213,6 +223,110 @@ def handle_send_image(data):
     except Exception as e:
         print(f"Error handling image: {str(e)}")
 
+# SocketIO handler for file uploads (fixed version)
+@socketio.on("send_attachment")
+def handle_send_attachment(data):
+    print('saving attachment')
+    sender_id = session.get('user_id')
+    sender_username = session.get('username')
+    receiver_id = data.get('receiver_id')
+    file_data = data.get('file_data')
+    filename = data.get('filename')
+    filetype = data.get('filetype')
+
+    if not all([sender_id, receiver_id, file_data, filename]):
+        return
+
+    try:
+        # Validate file type
+        if not allowed_file(filename):
+            socketio.emit("attachment_error", 
+                         {"message": "File type not allowed"}, 
+                         room=request.sid)
+            return
+
+        # Generate secure filename
+        unique_filename = f"{uuid.uuid4().hex}_{secure_filename(filename)}"
+        filepath = os.path.join(ATTACHMENT_UPLOAD_FOLDER, unique_filename)
+        print(f"Saving file to: {filepath}")
+        
+        # Process base64 data - handle with/without header
+        if ';base64,' in file_data:
+            header, data_str = file_data.split(';base64,')
+            file_data = data_str
+        else:
+            # Handle case where header might be missing
+            data_str = file_data
+        
+        # Save file
+        with open(filepath, 'wb') as f:
+            f.write(base64.b64decode(data_str))
+        print(f"File saved successfully: {filepath}")
+        
+        # Create message record
+        msg = ChatMessage(
+            sender_id=sender_id,
+            receiver_id=receiver_id,
+            content=f"[File] {filename}",
+            images=None
+        )
+        db.session.add(msg)
+        db.session.commit()
+        print(f"Message saved with ID: {msg.id}")
+        download_url = url_for('download_attachment', filename=unique_filename, _external=True)
+        print(f"Download URL: {download_url}")
+        # Create attachment record
+        attachment = ChatAttachment(
+            message_id=msg.id,
+            filename=filename,
+            filepath=unique_filename,
+            url=download_url,  # STORE PERSISTENT URL
+            filetype=filetype
+        )
+        db.session.add(attachment)
+        db.session.commit()
+        print(f"Attachment saved with ID: {attachment.id}")
+        
+        # Emit to receiver
+        download_url = url_for('download_attachment', filename=unique_filename, _external=True)
+        socketio.emit("receive_attachment", {
+            "sender_id": sender_id,
+            "sender_username": sender_username,  # ADD THIS LINE
+            "receiver_id": receiver_id,
+            "filename": filename,
+            "download_url": download_url,
+            "timestamp": datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        }, room=str(receiver_id))
+        print(f"Attachment sent to receiver {receiver_id}")
+        
+        # Send notification
+        socketio.emit("new_chat_notification", {
+            "sender_id": sender_id,
+            "sender_username": sender_username
+        }, room=f"user_{receiver_id}")
+        
+       
+        
+    except Exception as e:
+        print(f"Attachment error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        socketio.emit("attachment_error", 
+                     {"message": "Error processing file"}, 
+                     room=request.sid)
+
+# File download endpoint (fixed)
+@app.route('/download_attachment/<filename>')
+def download_attachment(filename):
+    try:
+        return send_from_directory(
+            ATTACHMENT_UPLOAD_FOLDER, 
+            filename, 
+            as_attachment=True,
+            download_name=filename.split('_', 1)[1]  # Preserve original filename
+        )
+    except FileNotFoundError:
+        return "File not found", 404
 
 @app.route("/get_chat_users")
 def get_chat_users():
@@ -1290,7 +1404,7 @@ def search_donors():
         User.blood_group == blood_request.blood_group,
         DonorApplication.status == "Approved",
         ((DonorApplication.last_donation_date == None) |
-         (DonorApplication.last_donation_date <= datetime.utcnow() - timedelta(days=90))),
+         (DonorApplication.last_donation_date <= datetime.now().astimezone(timezone.utc) - timedelta(days=90))),
         (
             (User.username.ilike(f"%{query}%")) |
             (User.name.ilike(f"%{query}%"))
