@@ -232,7 +232,14 @@
     </div>
     <button type="button" class="btn-close" onclick="closeChatModal()" aria-label="Close"></button>
   </div>
-  <div class="chat-body p-2" id="chatMessages"></div>
+  <div class="chat-body p-2" id="chatMessages" style="overflow-y: auto; height: 400px; position: relative;">
+    <div id="chatSpinner" class="text-center my-2" style="display: none;">
+      <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+    </div>
+    <!-- Messages will be inserted here -->
+  </div>
+
+
   <div class="chat-footer d-flex align-items-center border-top p-2" style="gap: 0.4rem; position: relative;">
     <button type="button" class="btn btn-light d-flex justify-content-center align-items-center p-2" id="emojiBtn" style="width: 38px; height: 38px;">
       😊
@@ -303,67 +310,115 @@
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <script>
 const socket = io();
-document.addEventListener("DOMContentLoaded", function () {
-  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-  let currentUserId = {{ session['user_id'] }};
-  let activeChatUserId = null;
 
-  socket.emit("join", { user_id: currentUserId });
+socket.on("receive_message", (data) => {
+    console.log(chatModalOpen, openChatUserId, data.sender_id);
+    // Only mark as read if modal is open AND for this user
+    if (chatModalOpen && data.sender_id == openChatUserId) {
+      appendMessage(data.content, false, new Date().toLocaleString());
+      markMessagesAsRead(openChatUserId);
+    } else {
+      showNewMessageNotification(data.sender_id, data.sender_username);
+    }
+  });
+  // Handle received images
+  socket.on("receive_image", (data) => {
+    if (chatModalOpen && data.sender_id == openChatUserId) {
+      appendMessage('', false, data.timestamp, data.image_data);
+      markMessagesAsRead(openChatUserId);
+    } else {
+      showNewMessageNotification(data.sender_id, data.sender_username);
+    }
+  });
 
-  function openChatModal(userId, username, profilePic = "/static/profile_pics/default.jpg") {
-    activeChatUserId = userId;
-    document.getElementById('chatModal').dataset.receiverId = userId; 
-    document.getElementById('chatModalTitle').textContent = `Chat with ${username}`;
-    document.getElementById('chatMessages').innerHTML = '';
-    document.getElementById('chatReceiverPic').src = profilePic;
-    
+    // Handle received attachments
+  socket.on('receive_attachment', (data) => {
+      const currentUserId = parseInt("{{ session['user_id'] }}");
+      const activeChatUserId = document.querySelector('#chatModal')?.dataset.receiverId;
 
-    // Fetch and render chat history
-    fetch(`/api/messages/${userId}`)
-      .then(res => res.json())
-      .then(messages => {
-        messages.forEach(msg => {
-          // Render images
-          if (msg.image_url) {
-            appendMessage('', msg.sender_id === currentUserId, msg.timestamp, msg.image_url);
-          }
-          // Render attachments
-          if (msg.attachments && msg.attachments.length > 0) {
-            msg.attachments.forEach(att => {
-              displayDocumentPreview({
-                name: att.filename,
-                download_url: att.url,
-                size: att.size // If available
-              }, msg.sender_id === currentUserId);
-            });
-          }
-          // Render text (if not just [File])
-          if (msg.content && !msg.image_url && (!msg.attachments || msg.attachments.length === 0)) {
-            appendMessage(msg.content, msg.sender_id === currentUserId, msg.timestamp);
-          }
-        });
-      });
-
-
-    // Mark messages as read in DB and hide badge
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-    fetch(`/api/messages/${userId}/mark_read`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken
+      // Only show notification if NOT viewing this chat
+      if (!activeChatUserId || activeChatUserId != data.sender_id) {
+          showNewMessageNotification(data.sender_id, data.sender_username);
       }
-    });
 
+      // Always update modal if active chat matches
+      if (activeChatUserId && data.sender_id == activeChatUserId) {
+          markMessagesAsRead(activeChatUserId);
 
-    const badge = document.querySelector(`#userChat-${userId} .badge`);
-    if (badge) {
-      badge.classList.add("d-none");
-      badge.textContent = ''; // Optional: reset count
-      updateTotalUnreadBadge();
+          displayDocumentPreview({
+              name: data.filename,
+              download_url: data.download_url,
+              size: data.file_size
+          }, data.sender_id === currentUserId);
+      }
+  });
+  // When server notifies a new chat message from unknown or inactive user
+  socket.on("new_chat_notification", (data) => {
+    showNewMessageNotification(data.sender_id, data.sender_username);
+  });
+  let chatModalOpen = false;
+  let openChatUserId = null;
+  let activeChatUserId = null;
+  let currentUserId = {{ session['user_id'] }};
+
+  function markMessagesAsRead(userId) {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      fetch(`/api/messages/${userId}/mark_read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        }
+      }).then(() => {
+        // Hide badge for this user
+        const badge = document.querySelector(`#userChat-${userId} .badge`);
+        if (badge) {
+          badge.classList.add("d-none");
+          badge.textContent = '';
+          updateTotalUnreadBadge();
+        }
+      });
+    }
+  function prependMessage(content, isSender, timestamp = null, imageUrl = null, beforeNode = null) {
+    const container = document.getElementById('chatMessages');
+    const msgDateStr = new Date(timestamp).toDateString();
+
+    // Insert date divider if new day
+    if (msgDateStr !== lastMessageDate) {
+      const divider = document.createElement('div');
+      divider.className = 'text-center my-2 text-muted date-divider';
+      divider.innerHTML = `<hr/><small>${formatDateHeading(timestamp)}</small>`;
+      container.insertBefore(divider, beforeNode);
+      lastMessageDate = msgDateStr;
     }
 
-    document.getElementById('chatModal').style.display = 'flex';
+    const div = document.createElement('div');
+    div.className = `text-${isSender ? 'end' : 'start'} my-1 message-wrapper`;
+
+    const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let messageContent;
+    if (imageUrl) {
+      messageContent = `<img src="${imageUrl}" alt="Chat image" class="chat-img-preview" style="max-width: 200px; max-height: 200px; display: block; cursor: pointer;">`;
+    } else {
+      messageContent = content;
+    }
+
+    div.innerHTML = `
+      <div class="position-relative d-inline-block message-bubble bg-${isSender ? 'primary' : 'secondary'} text-white px-2 py-1 rounded">
+        ${messageContent}
+        <div class="custom-timestamp">${timeStr}</div>
+      </div>
+    `;
+    container.insertBefore(div, beforeNode);
+
+    // Add event listener for image click
+    if (imageUrl) {
+      const img = div.querySelector('.chat-img-preview');
+      img.addEventListener('click', function () {
+        openImagePreview(imageUrl);
+      });
+    }
   }
   let lastMessageDate = null;
 
@@ -426,10 +481,6 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     }
   }
-
-  // Image Preview Modal Functionality
-  let currentZoom = 1;
-
   function openImagePreview(url) {
     const modal = document.getElementById('imagePreviewModal');
     const img = document.getElementById('previewImage');
@@ -473,40 +524,6 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById('imagePreviewModal').addEventListener('click', function (e) {
     if (e.target === this) this.style.display = 'none';
   });
-
-
-  function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    const content = input.value.trim();
-    if (!content || !activeChatUserId) return;
-
-    socket.emit("send_message", {
-      receiver_id: activeChatUserId,
-      content: content
-    });
-
-    appendMessage(content, true, new Date().toLocaleString());
-    input.value = '';
-  }
-
-  const sendButton = document.getElementById("sendChatBtn");
-  if (sendButton) {
-    sendButton.addEventListener("click", sendChatMessage);
-  }
-
-  socket.on("receive_message", (data) => {
-    if (data.sender_id == activeChatUserId) {
-      appendMessage(data.content, false, new Date().toLocaleString());
-    } else {
-      showNewMessageNotification(data.sender_id, data.sender_username);
-    }
-  });
-
-  // When server notifies a new chat message from unknown or inactive user
-  socket.on("new_chat_notification", (data) => {
-    showNewMessageNotification(data.sender_id, data.sender_username);
-  });
-
   function updateTotalUnreadBadge() {
     const badges = document.querySelectorAll('.dropdown-menu .badge:not(.d-none)');
     let total = 0;
@@ -547,6 +564,211 @@ document.addEventListener("DOMContentLoaded", function () {
 
     updateTotalUnreadBadge();
   }
+  const defaultZoom = 1;
+
+  function applyZoom(scale) {
+    const img = document.getElementById('previewImage');
+    img.style.transform = `scale(${scale})`;
+    // Optionally center image after zoom
+    const container = document.getElementById('imageScrollContainer');
+    container.scrollTo({
+      top: (img.clientHeight * scale - container.clientHeight) / 2,
+      left: (img.clientWidth * scale - container.clientWidth) / 2,
+      behavior: 'auto'
+    });
+  }
+  function displayDocumentPreview(file, isSender, beforeNode = null) {
+    const chatMessages = document.getElementById('chatMessages');
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `d-flex mb-2 ${isSender ? 'justify-content-end' : 'justify-content-start'}`;
+
+    const fileSizeHtml = file.size ? `<div class="text-muted small">${formatFileSize(file.size)}</div>` : '';
+
+    messageDiv.innerHTML = `
+      <div class="card border-0 shadow-sm" style="max-width: 80%;">
+        <div class="card-body p-2 d-flex align-items-center">
+          <div class="bg-light rounded p-2 me-2">
+            <i class="bi bi-file-earmark-text fs-4"></i>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-medium text-truncate">${file.name}</div>
+            ${fileSizeHtml}
+          </div>
+          <a href="${file.download_url}" 
+            download="${file.name}" 
+            class="stretched-link download-link ms-2" 
+            style="z-index: 1">
+            <i class="bi bi-download"></i>
+          </a>
+        </div>
+        <div class="card-footer bg-transparent border-0 pt-0 text-end">
+          <small class="text-muted">${timeStr}</small>
+        </div>
+      </div>
+    `;
+
+    chatMessages.insertBefore(messageDiv, beforeNode);
+  }
+function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+document.addEventListener("DOMContentLoaded", function () {
+  let chatPagination = {
+    page: 1,
+    perPage: 20,
+    hasMore: true,
+    loading: false,
+    lastScrollHeight: 0
+  };
+  
+  
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  
+  
+
+  socket.emit("join", { user_id: currentUserId });
+
+  function openChatModal(userId, username, profilePic = "/static/profile_pics/default.jpg") {
+    activeChatUserId = userId;
+    openChatUserId = userId;
+    chatModalOpen = true;
+    chatPagination = { page: 1, perPage: 20, hasMore: true, loading: false, lastScrollHeight: 0 };
+
+    document.getElementById('chatModal').dataset.receiverId = userId; 
+    document.getElementById('chatModalTitle').textContent = `Chat with ${username}`;
+    document.getElementById('chatReceiverPic').src = profilePic;
+
+    // Ensure spinner exists at the top
+    const chatMessages = document.getElementById('chatMessages');
+    let spinnerDiv = document.getElementById('chatSpinner');
+    if (!spinnerDiv) {
+      spinnerDiv = document.createElement('div');
+      spinnerDiv.id = 'chatSpinner';
+      spinnerDiv.className = 'text-center my-2';
+      spinnerDiv.style.display = 'none';
+      spinnerDiv.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>';
+      chatMessages.prepend(spinnerDiv);
+    }
+
+    // Remove all children except spinner
+    [...chatMessages.children].forEach(child => {
+      if (child.id !== 'chatSpinner') chatMessages.removeChild(child);
+    });
+
+    lastMessageDate = null;
+    loadChatMessages(userId, 1, true);
+    markMessagesAsRead(userId);
+    // Scroll to bottom after initial load
+    setTimeout(() => {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, 250);
+  }
+
+  function loadChatMessages(userId, page, initialLoad = false) {
+    if (chatPagination.loading || !chatPagination.hasMore) return;
+    chatPagination.loading = true;
+    const spinnerDiv = document.getElementById('chatSpinner');
+    if (spinnerDiv) spinnerDiv.style.display = 'block';
+
+    const chatMessages = document.getElementById('chatMessages');
+    const prevScrollHeight = chatMessages.scrollHeight;
+
+    fetch(`/api/messages/${userId}?page=${page}&per_page=${chatPagination.perPage}`)
+      .then(res => res.json())
+      .then(data => {
+        const messages = data.messages;
+        chatPagination.hasMore = data.has_more;
+        chatPagination.page = page;
+        if (spinnerDiv) spinnerDiv.style.display = 'none';
+        chatPagination.loading = false;
+
+        if (initialLoad) {
+          // Remove all children except spinner
+          [...chatMessages.children].forEach(child => {
+            if (child.id !== 'chatSpinner') chatMessages.removeChild(child);
+          });
+          lastMessageDate = null;
+        }
+
+        // Save current scroll position from bottom
+        let prevScrollFromBottom = chatMessages.scrollHeight - chatMessages.scrollTop;
+
+        // Prepend messages (oldest first)
+        let firstChild = chatMessages.children[1] || null; // skip spinner
+        messages.forEach(msg => {
+          if (msg.image_url) {
+            prependMessage('', msg.sender_id === currentUserId, msg.timestamp, msg.image_url, firstChild);
+          }
+          if (msg.attachments && msg.attachments.length > 0) {
+            msg.attachments.forEach(att => {
+              displayDocumentPreview({
+                name: att.filename,
+                download_url: att.url,
+                size: att.size // if available
+              }, msg.sender_id === currentUserId, firstChild);
+            });
+          }
+          if (msg.content && !msg.image_url && (!msg.attachments || msg.attachments.length === 0)) {
+            prependMessage(msg.content, msg.sender_id === currentUserId, msg.timestamp, null, firstChild);
+          }
+        });
+
+        // After prepending, restore scroll position so user stays at same place
+        if (!initialLoad) {
+          chatMessages.scrollTop = chatMessages.scrollHeight - prevScrollFromBottom;
+        }
+
+        // If first load, scroll to bottom
+        if (initialLoad) {
+          setTimeout(() => {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+          }, 100);
+        }
+      })
+      .catch((e) => {
+        if (spinnerDiv) spinnerDiv.style.display = 'none';
+        chatPagination.loading = false;
+        // Optionally show error to user
+        console.error(e);
+      });
+
+    document.getElementById('chatModal').style.display = 'flex';
+  }
+  
+
+  // Image Preview Modal Functionality
+  let currentZoom = 1;
+
+  
+
+
+  function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const content = input.value.trim();
+    if (!content || !activeChatUserId) return;
+
+    socket.emit("send_message", {
+      receiver_id: activeChatUserId,
+      content: content
+    });
+
+    appendMessage(content, true, new Date().toLocaleString());
+    input.value = '';
+  }
+
+  const sendButton = document.getElementById("sendChatBtn");
+  if (sendButton) {
+    sendButton.addEventListener("click", sendChatMessage);
+  }
+
+  
   // Inside DOMContentLoaded
   const imageUploadBtn = document.getElementById('imageUploadBtn');
   const imageInput = document.getElementById('imageInput');
@@ -588,14 +810,8 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Handle received images
-  socket.on("receive_image", (data) => {
-    if (data.sender_id == activeChatUserId) {
-      appendMessage('', false, data.timestamp, data.image_data);
-    } else {
-      showNewMessageNotification(data.sender_id, data.sender_username);
-    }
-  });
+  
+
   chatInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -603,19 +819,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  const defaultZoom = 1;
-
-  function applyZoom(scale) {
-    const img = document.getElementById('previewImage');
-    img.style.transform = `scale(${scale})`;
-    // Optionally center image after zoom
-    const container = document.getElementById('imageScrollContainer');
-    container.scrollTo({
-      top: (img.clientHeight * scale - container.clientHeight) / 2,
-      left: (img.clientWidth * scale - container.clientWidth) / 2,
-      behavior: 'auto'
-    });
-  }
+  
 
   // Inside DOMContentLoaded event listener
 
@@ -665,85 +869,35 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
   // Updated receive_attachment handler
-  // Handle received attachments
-  socket.on('receive_attachment', (data) => {
-      const currentUserId = parseInt("{{ session['user_id'] }}");
-      const activeChatUserId = document.querySelector('#chatModal')?.dataset.receiverId;
-
-      // Only show notification if NOT viewing this chat
-      if (!activeChatUserId || activeChatUserId != data.sender_id) {
-          showNewMessageNotification(data.sender_id, data.sender_username);
-      }
-
-      // Always update modal if active chat matches
-      if (activeChatUserId && data.sender_id == activeChatUserId) {
-          displayDocumentPreview({
-              name: data.filename,
-              download_url: data.download_url,
-              size: data.file_size
-          }, data.sender_id === currentUserId);
-      }
-  });
 
 
 
   // Define the formatFileSize function
-  function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  }
+  
 
-  // Updated displayDocumentPreview function
-  function displayDocumentPreview(file, isSender) {
-    const chatMessages = document.getElementById('chatMessages');
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `d-flex mb-2 ${isSender ? 'justify-content-end' : 'justify-content-start'}`;
-    
-    // File size display (if available)
-    const fileSizeHtml = file.size ? `<div class="text-muted small">${formatFileSize(file.size)}</div>` : '';
-    
-    messageDiv.innerHTML = `
-      <div class="card border-0 shadow-sm" style="max-width: 80%;">
-        <div class="card-body p-2 d-flex align-items-center">
-          <div class="bg-light rounded p-2 me-2">
-            <i class="bi bi-file-earmark-text fs-4"></i>
-          </div>
-          <div class="flex-grow-1">
-            <div class="fw-medium text-truncate">${file.name}</div>
-            ${fileSizeHtml}
-          </div>
-          <a href="${file.download_url}" 
-            download="${file.name}" 
-            class="stretched-link download-link ms-2" 
-            style="z-index: 1">
-            <i class="bi bi-download"></i>
-          </a>
-        </div>
-        <div class="card-footer bg-transparent border-0 pt-0 text-end">
-          <small class="text-muted">${timeStr}</small>
-        </div>
-      </div>
-    `;
-    
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
-
-
+  
 
   window.openChatModal = openChatModal;
   updateTotalUnreadBadge();
+  const chatMessages = document.getElementById('chatMessages');
+
+  chatMessages.addEventListener('scroll', function () {
+    if (chatMessages.scrollTop < 50 && chatPagination.hasMore && !chatPagination.loading) {
+      // User is near the top, load more
+      loadChatMessages(activeChatUserId, chatPagination.page + 1, false);
+    }
+  });
+
 });
 
 
 function closeChatModal() {
   document.getElementById('chatModal').style.display = 'none';
+  chatModalOpen = false;
+  //openChatUserId = null;
+  activeChatUserId = null;
 }
+
 
 // Map category names to tab emoji icons
 const emojiCategories = {
@@ -842,6 +996,7 @@ document.addEventListener('click', (e) => {
     emojiKeyboard.classList.add('d-none');
   }
 });
+
 
 </script>
 

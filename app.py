@@ -125,24 +125,36 @@ def get_messages(other_user_id):
     if not current_user_id:
         return jsonify([])
 
-    messages = ChatMessage.query.filter(
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    # Query messages in reverse chronological order for pagination
+    messages_query = ChatMessage.query.filter(
         ((ChatMessage.sender_id == current_user_id) & (ChatMessage.receiver_id == other_user_id)) |
         ((ChatMessage.sender_id == other_user_id) & (ChatMessage.receiver_id == current_user_id))
-    ).order_by(ChatMessage.timestamp).all()
+    ).order_by(ChatMessage.timestamp.desc())
 
-    return jsonify([{
-        "id": msg.id,
-        "sender_id": msg.sender_id,
-        "receiver_id": msg.receiver_id,
-        "content": msg.content,
-        "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-        "image_url": url_for('static', filename=f'chat_images/{msg.images}') if msg.images else None,
-        "is_read": msg.is_read,
-        "attachments": [{
-            "filename": att.filename,
-            "url": msg.attachments[0].url  # DATABASE-STORED URL
-        } for att in msg.attachments] if msg.attachments else []
-    } for msg in messages])
+    paginated = messages_query.paginate(page=page, per_page=per_page, error_out=False)
+    messages = paginated.items[::-1]  # Reverse to chronological for display
+
+    return jsonify({
+        "messages": [{
+            "id": msg.id,
+            "sender_id": msg.sender_id,
+            "receiver_id": msg.receiver_id,
+            "content": msg.content,
+            "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "image_url": url_for('static', filename=f'chat_images/{msg.images}') if msg.images else None,
+            "is_read": msg.is_read,
+            "attachments": [{
+                "filename": att.filename,
+                "url": att.url
+            } for att in msg.attachments] if msg.attachments else []
+        } for msg in messages],
+        "has_more": paginated.has_next,
+        "next_page": page + 1 if paginated.has_next else None
+    })
 
 
 @socketio.on("send_message")

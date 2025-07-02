@@ -2182,3 +2182,13 @@ body.dark-mode .emoji-picker {
     transform: translateY(-2px);
 }
 
+#chatMessages {
+    position: relative;
+}
+#chatLoadingSpinner {
+  z-index: 1000; /* Ensure it appears above content */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
