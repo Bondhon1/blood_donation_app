@@ -1,24 +1,93 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // 🔹 Search Box Functionality
-    let searchBox = document.getElementById("searchBox");
-    let searchResults = document.getElementById("searchResults");
+    const searchBox = document.getElementById('searchBoxMobile');
+    const searchResults = document.getElementById('searchResults');
 
-    if (searchBox) {
-        searchBox.addEventListener("input", function () {
-            let query = this.value.trim();
+    // Utility: Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.replace(/[&<>"'`=\/]/g, function (s) {
+            return ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+                '/': '&#x2F;',
+                '`': '&#x60;',
+                '=': '&#x3D;'
+            })[s];
+        });
+    }
 
-            if (query.length > 2) {
-                searchResults.innerHTML = "<p>Searching...</p>";
-                searchResults.style.display = "block";
+    if (searchBox && searchResults) {
+        searchBox.addEventListener('input', async () => {
+            const query = searchBox.value.trim();
+            if (!query) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('d-none');
+                return;
+            }
 
-                setTimeout(() => {
-                    searchResults.innerHTML = `<p>Result for "${query}"</p>`;
-                }, 500);
-            } else {
-                searchResults.style.display = "none";
+            try {
+                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                let html = '';
+                if (data.users.length > 0) {
+                    html += '<h6>Users</h6>';
+                    data.users.forEach(user => {
+                        html += `
+                            <div class="search-item" onclick="window.location.href='/profile/${encodeURIComponent(user.username)}'">
+                                <img src="/static/profile_pics/${escapeHtml(user.profile_picture)}" class="search-avatar" alt="Profile" />
+                                <span>${escapeHtml(user.name || user.username)}</span>
+                                ${user.is_donor ? '<span class="donor-badge">Donor</span>' : ''}
+                            </div>
+                        `;
+                    });
+                }
+                if (data.blood_requests.length > 0) {
+                    html += '<h6>Blood Requests</h6>';
+                    data.blood_requests.forEach(br => {
+                        html += `
+                            <div class="search-item" onclick="window.location.href='/view_blood_request/${br.id}'">
+                                <img src="/static/profile_pics/${escapeHtml(br.creator_profile_picture)}" class="search-avatar" alt="Creator" />
+                                <span>
+                                    <b>${escapeHtml(br.patient_name)}</b>
+                                    <small class="text-muted">(${escapeHtml(br.reason)})</small>
+                                </span>
+                            </div>
+                        `;
+                    });
+                }
+                if (html === '') {
+                    searchResults.innerHTML = '';
+                    searchResults.classList.add('d-none');
+                } else {
+                    searchResults.innerHTML = html;
+                    searchResults.classList.remove('d-none');
+                }
+            } catch (err) {
+                searchResults.innerHTML = '<div class="text-danger px-3 py-2">Search failed. Please try again.</div>';
+                searchResults.classList.remove('d-none');
+            }
+        });
+
+        // Hide popup when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchBox.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.add('d-none');
+            }
+        });
+
+        // Optional: Hide popup on ESC key
+        searchBox.addEventListener('keydown', function(e) {
+            if (e.key === "Escape") {
+                searchResults.classList.add('d-none');
+                searchBox.blur();
             }
         });
     }
+
 
     // 🔹 Notifications Popup
     let notifBtn = document.getElementById("notifBtn");

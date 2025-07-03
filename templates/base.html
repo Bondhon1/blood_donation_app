@@ -50,16 +50,15 @@
                         {% endif %}
                     </div>
                     <!-- Center: Search Bar (only if logged in) -->
+                    
                     {% if session.get('user_id') or session.get('admin_username') %}
-                    <div class="flex-grow-1 d-none d-sm-block">
-                        <input type="text" id="searchBox" class="form-control" placeholder="Search donors...">
-                        <div id="searchResults" class="search-popup"></div>
-                    </div>
+                            
+                            <div class="search-container" style="display:inline-block; position:relative;">
+                                <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 140px;">
+                                <div id="searchResults" class="search-popup d-none"></div>
+                            </div>
+
                     {% endif %}
-                    {% if session.get('user_id') or session.get('admin_username') %}
-                            <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 120px;">
-                            <div id="searchResults" class="search-popup"></div>
-                        {% endif %}
                     <!-- Right: Mobile Search + Menu -->
                     <div class="d-flex d-sm-none align-items-center ms-auto">
                         
@@ -91,6 +90,7 @@
                                         <span class="hide-on-mobile"> Doctor’s Help</span>
                                     </a>
                                 </li>
+                                {% if session.get('username') %}
                                 <li class="nav-item dropdown">
                                   <a class="nav-link position-relative" data-bs-toggle="dropdown" role="button">
                                     <i class="fas fa-message"></i>
@@ -117,6 +117,7 @@
 
                                   </ul>
                                 </li>
+                                {% endif %}
 
 
     

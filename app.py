@@ -68,6 +68,65 @@ def home():
             return redirect(url_for('news_feed', username=user.username))  # ✅ Pass username
     return render_template('home.html')
 
+def get_dynamic_search_results(query):
+    # Find users matching username or name
+    user_results = User.query.filter(
+        (User.username.ilike(f"%{query}%")) | (User.name.ilike(f"%{query}%"))
+    ).all()
+
+    # Find donor applications matching username or name
+    donor_applications = DonorApplication.query.join(User).filter(
+        (User.username.ilike(f"%{query}%")) | (User.name.ilike(f"%{query}%"))
+    ).all()
+    donor_user_ids = [donor.user_id for donor in donor_applications]
+
+    donor_results = User.query.filter(User.id.in_(donor_user_ids)).all()
+
+    # Find blood requests matching patient name or reason
+    blood_request_results = BloodRequest.query.filter(
+        (BloodRequest.patient_name.ilike(f"%{query}%")) | (BloodRequest.reason.ilike(f"%{query}%"))
+    ).all()
+
+    # Combine users and donors, avoid duplicates
+    combined_users = {user.id: user for user in user_results + donor_results}.values()
+
+    # For each user, check if they are a donor
+    users_data = []
+    for user in combined_users:
+        is_donor = DonorApplication.query.filter_by(user_id=user.id, status="Approved").first() is not None
+        users_data.append({
+            'id': user.id,
+            'username': user.username,
+            'name': user.name,
+            'profile_picture': user.profile_picture or "default.jpg",
+            'is_donor': is_donor
+        })
+
+    # For each blood request, include creator's profile picture
+    blood_requests_data = []
+    for br in blood_request_results:
+        creator = br.user
+        blood_requests_data.append({
+            'id': br.id,
+            'patient_name': br.patient_name,
+            'reason': br.reason,
+            'creator_username': creator.username,
+            'creator_profile_picture': creator.profile_picture or "default.jpg"
+        })
+
+    return users_data, blood_requests_data
+
+
+@app.route('/api/search')
+def api_search():
+    query = request.args.get('q', '')
+    if not query:
+        return jsonify({'users': [], 'blood_requests': []})
+
+    users, blood_requests = get_dynamic_search_results(query)
+    return jsonify({'users': users, 'blood_requests': blood_requests})
+
+
 @app.context_processor
 def inject_chat_users():
     if 'user_id' in session:
@@ -80,7 +139,7 @@ def inject_chat_users():
         related_user_ids = messaged_user_ids.union(received_user_ids).subquery()
 
         # Get the actual user objects
-        chat_users = User.query.filter(User.id.in_(related_user_ids)).all()
+        chat_users = User.query.filter(User.id.in_(db.select(related_user_ids))).all()
 
         # Get unread message counts per user
         unread_counts = db.session.query(
@@ -532,12 +591,12 @@ def news_feed(username):
     # ✅ Check for user session first
     if 'user_id' in session:
         user_id = session['user_id']
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
 
     # ✅ If not a user, check for admin session
     elif 'admin_id' in session:
         user_id = session['admin_id']  # Not necessary unless you want to use it
-        user = Admin.query.get(user_id)
+        user = db.session.get(Admin, user_id)
 
         if not user:
             flash("Admin not found.", "danger")
@@ -545,8 +604,8 @@ def news_feed(username):
 
         # For admins, just show latest blood requests without sorting
         sorted_requests = BloodRequest.query.order_by(BloodRequest.created_at.desc()).limit(20).all()
-        current_user = User.query.get(session['user_id'])
-        users = User.query.filter(User.id != current_user.id).all()
+        current_user = Admin.query.get(session['admin_id'])
+        users = User.query.all()
         return render_template(
             'news_feed.html',
             username=username,
