@@ -13,42 +13,54 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
+    
+    <!-- Modern Hero Section -->
     <section class="hero">
-        <h1>Every drop counts. Join the movement to save lives.</h1>
-
+        <div class="hero-content">
+            <h1>Every Drop Counts. Join the Movement to Save Lives.</h1>
+            <p class="hero-subtitle">Connect with donors and recipients. Make a difference today.</p>
+        </div>
     </section>
 
     <div class="container mt-5">
-        <h2>Welcome to the Blood Donation & Reception System</h2>
-        <p>Our mission is to connect people in need of blood with generous donors. Through this platform, we aim to facilitate easy and efficient blood donation while promoting awareness about the importance of giving blood.</p>
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold">Welcome to LifeDrop</h2>
+            <p class="lead text-muted">Connecting people in need with generous donors. Together, we save lives through efficient blood donation.</p>
+        </div>
         
         <!-- Why Donate Blood Section -->
-        <section class="why-donate">
-            <h3>Why Donate Blood?</h3>
-            <div class="row">
+        <section class="why-donate mb-5">
+            <h3 class="text-center mb-4 fw-bold">Why Donate Blood?</h3>
+            <div class="row g-4">
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-heartbeat fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-heartbeat fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Save Lives</h5>
-                            <p class="card-text">A single donation can save up to three lives. Every donation counts!</p>
+                            <h5 class="card-title fw-bold">Save Lives</h5>
+                            <p class="card-text">A single donation can save up to three lives. Every donation counts and makes a real difference!</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-hand-holding-heart fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-hand-holding-heart fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Community Impact</h5>
+                            <h5 class="card-title fw-bold">Community Impact</h5>
                             <p class="card-text">Blood donations are crucial in emergencies and for patients undergoing surgeries or treatments.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-tint fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-tint fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Boost Your Health</h5>
+                            <h5 class="card-title fw-bold">Boost Your Health</h5>
                             <p class="card-text">Donating blood can help reduce iron overload and improve your cardiovascular health.</p>
                         </div>
                     </div>
@@ -57,32 +69,41 @@
         </section>
 
         <!-- How It Works Section -->
-        <section class="how-it-works mt-5">
-            <h3>How It Works</h3>
-            <div class="row">
+        <section class="how-it-works mb-5">
+            <h3 class="text-center mb-4 fw-bold">How It Works</h3>
+            <div class="row g-4">
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-user-plus fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="step-badge">1</div>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-user-plus fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Step 1: Register</h5>
+                            <h5 class="card-title fw-bold">Register</h5>
                             <p class="card-text">Create an account to get started. Donors can register to provide help, while recipients can request blood.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-handshake fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="step-badge">2</div>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-handshake fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Step 2: Match & Request</h5>
+                            <h5 class="card-title fw-bold">Match & Request</h5>
                             <p class="card-text">Recipients submit a blood request. Donors get matched based on availability and location.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card text-center shadow-sm">
-                        <i class="fas fa-donate fa-3x mt-4"></i> <!-- Added mt-4 for margin-top -->
+                    <div class="card modern-card text-center h-100">
+                        <div class="step-badge">3</div>
+                        <div class="card-icon-wrapper">
+                            <i class="fas fa-donate fa-3x text-danger"></i>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Step 3: Donate</h5>
+                            <h5 class="card-title fw-bold">Donate</h5>
                             <p class="card-text">Once matched, donors donate blood, and recipients receive it promptly, saving lives!</p>
                         </div>
                     </div>
@@ -91,13 +112,14 @@
         </section>
 
         <!-- CTA (Call to Action) -->
-        <section class="cta mt-5 text-center">
-            <h2>Ready to Save a Life?</h2>
-            <p>Join us today and make a difference. Your donation can save a life!</p>
-            <a href="{{ url_for('register') }}" class="btn btn-danger btn-lg">Become a Member Now</a>
+        <section class="cta mb-5 text-center p-5 rounded">
+            <h2 class="display-6 fw-bold mb-3">Ready to Save a Life?</h2>
+            <p class="lead mb-4">Join us today and make a difference. Your donation can save a life!</p>
+            <a href="{{ url_for('register') }}" class="btn btn-danger btn-lg btn-animated px-5 py-3">
+                <i class="fas fa-user-plus me-2"></i>Become a Member Now
+            </a>
         </section>
     </div>
     
-    
-    
 {% endblock %}
+    

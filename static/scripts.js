@@ -1,8 +1,9 @@
 document.addEventListener("DOMContentLoaded", function () {
     const searchBox = document.getElementById('searchBoxMobile');
     const searchResults = document.getElementById('searchResults');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
 
-    // Utility: Escape HTML to prevent XSS
+    // Utility: Escape HTML to prevent XSS (for non-highlighted fields)
     function escapeHtml(text) {
         if (!text) return '';
         return text.replace(/[&<>"'`=\/]/g, function (s) {
@@ -19,6 +20,35 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Show/hide clear button
+    if (searchBox && clearSearchBtn) {
+        searchBox.addEventListener('input', () => {
+            clearSearchBtn.style.display = searchBox.value ? 'block' : 'none';
+        });
+
+        // Clear search box and results
+        clearSearchBtn.addEventListener('click', () => {
+            searchBox.value = '';
+            clearSearchBtn.style.display = 'none';
+            if (searchResults) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('d-none');
+            }
+            searchBox.focus();
+        });
+
+        // Ensure search box is empty after refresh
+        window.addEventListener('DOMContentLoaded', () => {
+            searchBox.value = '';
+            clearSearchBtn.style.display = 'none';
+            if (searchResults) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('d-none');
+            }
+        });
+    }
+
+    // Main search logic
     if (searchBox && searchResults) {
         searchBox.addEventListener('input', async () => {
             const query = searchBox.value.trim();
@@ -37,9 +67,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     html += '<h6>Users</h6>';
                     data.users.forEach(user => {
                         html += `
-                            <div class="search-item" onclick="window.location.href='/profile/${encodeURIComponent(user.username)}'">
+                            <div class="search-item" onclick="window.location.href='/profile/${user.username.replace(/<[^>]+>/g, "")}'">
                                 <img src="/static/profile_pics/${escapeHtml(user.profile_picture)}" class="search-avatar" alt="Profile" />
-                                <span>${escapeHtml(user.name || user.username)}</span>
+                                <span>${user.name || user.username}</span>
                                 ${user.is_donor ? '<span class="donor-badge">Donor</span>' : ''}
                             </div>
                         `;
@@ -49,23 +79,33 @@ document.addEventListener("DOMContentLoaded", function () {
                     html += '<h6>Blood Requests</h6>';
                     data.blood_requests.forEach(br => {
                         html += `
-                            <div class="search-item" onclick="window.location.href='/view_blood_request/${br.id}'">
+                            <div class="search-item search-item-blood" 
+                                data-br='${JSON.stringify(br).replace(/'/g, "&apos;")}'
+                                onclick="window.location.href='/view_blood_request/${br.id}'">
                                 <img src="/static/profile_pics/${escapeHtml(br.creator_profile_picture)}" class="search-avatar" alt="Creator" />
-                                <span>
-                                    <b>${escapeHtml(br.patient_name)}</b>
-                                    <small class="text-muted">(${escapeHtml(br.reason)})</small>
-                                </span>
+                                <div class="search-main-info">
+                                    <span class="search-patient-name">${br.patient_name}</span>
+                                    <span class="search-blood-group">${escapeHtml(br.blood_group)}</span>
+                                </div>
                             </div>
                         `;
                     });
                 }
                 if (html === '') {
-                    searchResults.innerHTML = '';
-                    searchResults.classList.add('d-none');
+                    searchResults.innerHTML = `
+                        <div class="search-no-results">
+                            <span>No results found</span>
+                        </div>
+                    `;
+                    searchResults.classList.remove('d-none');
                 } else {
                     searchResults.innerHTML = html;
                     searchResults.classList.remove('d-none');
                 }
+
+                // -----> Attach popups AFTER rendering!
+                attachBloodRequestPopups();
+
             } catch (err) {
                 searchResults.innerHTML = '<div class="text-danger px-3 py-2">Search failed. Please try again.</div>';
                 searchResults.classList.remove('d-none');
@@ -74,12 +114,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Hide popup when clicking outside
         document.addEventListener('click', function(e) {
-            if (!searchBox.contains(e.target) && !searchResults.contains(e.target)) {
+            if (!searchBox.contains(e.target) && !searchResults.contains(e.target) && e.target !== clearSearchBtn) {
                 searchResults.classList.add('d-none');
             }
         });
 
-        // Optional: Hide popup on ESC key
+        // Hide popup on ESC key
         searchBox.addEventListener('keydown', function(e) {
             if (e.key === "Escape") {
                 searchResults.classList.add('d-none');
@@ -87,6 +127,71 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
     }
+
+    // Remove any existing popup
+    function removeBloodRequestPopup() {
+        const existing = document.getElementById('blood-request-popup');
+        if (existing) existing.remove();
+    }
+
+    // Show popup with extra info near the hovered element
+    function showBloodRequestPopup(target, br) {
+        removeBloodRequestPopup();
+
+        // Create popup div
+        const popup = document.createElement('div');
+        popup.id = 'blood-request-popup';
+        popup.className = 'blood-request-popup';
+        popup.innerHTML = `
+            <div><b>Patient:</b> ${br.patient_name}</div>
+            <div><b>Blood Group:</b> ${escapeHtml(br.blood_group)}</div>
+            <div><b>Reason:</b> ${br.reason}</div>
+            <div><b>Location:</b> ${escapeHtml(br.location)}</div>
+            <div><b>Date Needed:</b> ${escapeHtml(br.date_needed || '')}</div>
+            <div><b>Status:</b> ${escapeHtml(br.status)}</div>
+        `;
+
+        document.body.appendChild(popup);
+
+        // Position the popup near the hovered element
+        const rect = target.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+        // Default: right side
+        let top = rect.top + scrollTop;
+        let left = rect.right + 12 + scrollLeft;
+
+        // If not enough space on right, show on left
+        if (left + popup.offsetWidth > window.innerWidth) {
+            left = rect.left - popup.offsetWidth - 12 + scrollLeft;
+        }
+        // If not enough space on top, adjust
+        if (top + popup.offsetHeight > window.innerHeight + scrollTop) {
+            top = window.innerHeight + scrollTop - popup.offsetHeight - 8;
+        }
+
+        popup.style.top = top + 'px';
+        popup.style.left = left + 'px';
+    }
+
+    // Attach event listeners after rendering blood requests
+    function attachBloodRequestPopups() {
+        document.querySelectorAll('.search-item-blood').forEach(item => {
+            const br = JSON.parse(item.getAttribute('data-br'));
+            item.addEventListener('mouseenter', () => showBloodRequestPopup(item, br));
+            item.addEventListener('mouseleave', removeBloodRequestPopup);
+            item.addEventListener('click', removeBloodRequestPopup);
+        });
+        // Remove popup if mouse leaves the popup itself
+        document.body.addEventListener('mousemove', function(e) {
+            const popup = document.getElementById('blood-request-popup');
+            if (popup && !popup.contains(e.target) && !e.target.classList.contains('search-item-blood')) {
+                removeBloodRequestPopup();
+            }
+        });
+    }
+
 
 
     // 🔹 Notifications Popup
@@ -155,7 +260,75 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.setItem("darkMode", "disabled");
             }
         });
-    }  
+    }
+    
+    // 🎯 Navbar Scroll Effect
+    let lastScroll = 0;
+    const navbar = document.querySelector('.navbar');
+    
+    if (navbar) {
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            
+            if (currentScroll > 100) {
+                navbar.style.boxShadow = '0 6px 30px rgba(0, 0, 0, 0.25)';
+                navbar.style.padding = '8px 0';
+            } else {
+                navbar.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
+                navbar.style.padding = '0';
+            }
+            
+            lastScroll = currentScroll;
+        });
+    }
+    
+    // 🎯 CUSTOM NAVBAR COLLAPSE - Works with navbar-right-group
+    const customToggler = document.querySelector('.custom-toggler');
+    const navbarRightGroup = document.querySelector('.navbar-right-group');
+    
+    if (customToggler && navbarRightGroup) {
+        // Ensure navbar starts collapsed
+        navbarRightGroup.classList.remove('show', 'collapse');
+        navbarRightGroup.classList.add('collapse');
+        customToggler.classList.add('collapsed');
+        customToggler.setAttribute('aria-expanded', 'false');
+        
+        customToggler.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const isCollapsed = this.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                // EXPAND
+                navbarRightGroup.classList.remove('collapse');
+                navbarRightGroup.classList.add('show');
+                this.classList.remove('collapsed');
+                this.setAttribute('aria-expanded', 'true');
+                
+            } else {
+                // COLLAPSE
+                navbarRightGroup.classList.remove('show');
+                navbarRightGroup.classList.add('collapse');
+                this.classList.add('collapsed');
+                this.setAttribute('aria-expanded', 'false');
+            }
+        });
+        
+        // Close navbar when clicking outside (only on mobile)
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth < 992) {
+                if (!customToggler.contains(e.target) && !navbarRightGroup.contains(e.target)) {
+                    if (!customToggler.classList.contains('collapsed')) {
+                        navbarRightGroup.classList.remove('show');
+                        navbarRightGroup.classList.add('collapse');
+                        customToggler.classList.add('collapsed');
+                        customToggler.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            }
+        });
+    }
     
 });
 document.addEventListener("DOMContentLoaded", () => {
@@ -219,7 +392,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 id: data.notif_id,
                 message: data.message,
                 link: data.link,
-                is_read: false
+                is_read: false,
+                sender_profile_pic: data.sender_profile_pic,
+                sender_name: data.sender_name,
+                timestamp: data.timestamp
             });
 
             container.prepend(newNotif);
@@ -230,58 +406,221 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
 
+        const resolveProfilePicPath = (picPath) => {
+            if (!picPath) return null;
+
+            const trimmed = picPath.trim();
+            if (!trimmed) return null;
+
+            const lower = trimmed.toLowerCase();
+            if (lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('data:')) {
+                return trimmed;
+            }
+
+            if (trimmed.startsWith('/static/')) {
+                return trimmed;
+            }
+
+            if (trimmed.startsWith('static/')) {
+                return `/${trimmed}`;
+            }
+
+            if (trimmed.startsWith('/')) {
+                return trimmed;
+            }
+
+            if (trimmed.startsWith('profile_pics/')) {
+                return `/static/${trimmed}`;
+            }
+
+            return `/static/profile_pics/${trimmed}`;
+        };
+
         function createNotificationElement(n) {
             const notif = document.createElement("div");
-            notif.classList.add("alert", "alert-warning", "alert-dismissible", "fade", "show");
+            notif.classList.add("notification-item");
             notif.setAttribute("data-id", n.id);
-            if (!n.is_read) notif.classList.add("unread-notification");
+            if (!n.is_read) notif.classList.add("unread");
 
-            if (n.link) {
-                notif.innerHTML = `<a href="#" class="text-decoration-none notif-link" data-id="${n.id}" data-link="${n.link}">${n.message}</a>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-            } else {
-                notif.innerHTML = `${n.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            // Determine notification type and icon from message
+            let iconClass = "fa-bell";
+            let iconType = "general";
+            const msg = n.message.toLowerCase();
+            
+            if (msg.includes("liked") || msg.includes("like")) {
+                iconClass = "fa-heart";
+                iconType = "like";
+            } else if (msg.includes("comment")) {
+                iconClass = "fa-comment";
+                iconType = "comment";
+            } else if (msg.includes("request") || msg.includes("blood")) {
+                iconClass = "fa-tint";
+                iconType = "request";
+            } else if (msg.includes("friend")) {
+                iconClass = "fa-user-plus";
+                iconType = "friend";
             }
+
+            // Get relative time
+            const timeAgo = n.timestamp ? getTimeAgo(new Date(n.timestamp)) : "Just now";
+
+            // Create avatar with sender profile picture or default
+            let avatarHTML;
+            const formattedPic = resolveProfilePicPath(n.sender_profile_pic);
+            const isDefaultPic = formattedPic && formattedPic.includes('default');
+
+            if (formattedPic && !isDefaultPic) {
+                // Use sender's profile picture (matching chat dropdown styling)
+                avatarHTML = `
+                    <div class="notification-avatar">
+                        <img src="${formattedPic}" alt="${n.sender_name || 'User'}">
+                        <div class="notification-icon-badge ${iconType}">
+                            <i class="fas ${iconClass}"></i>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Use default avatar
+                const initial = n.sender_name ? n.sender_name[0].toUpperCase() : 'U';
+                avatarHTML = `
+                    <div class="notification-avatar">
+                        <div class="default-avatar">${initial}</div>
+                        <div class="notification-icon-badge ${iconType}">
+                            <i class="fas ${iconClass}"></i>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const contentHTML = `
+                <div class="notification-content">
+                    <p class="notification-message">${n.message}</p>
+                    <span class="notification-time"><i class="far fa-clock me-1"></i>${timeAgo}</span>
+                </div>
+            `;
+
+            notif.innerHTML = avatarHTML + contentHTML;
+
+            // Add click handler for notification
+            notif.addEventListener("click", (e) => {
+                if (n.link) {
+                    // Handle notification click
+                    markNotificationAsRead(n.id, n.link, notif);
+                }
+            });
 
             return notif;
         }
 
-        // ✅ Mark as read
-        container.addEventListener("click", (e) => {
-            if (e.target.classList.contains("notif-link")) {
-                e.preventDefault();
-                const notifId = e.target.dataset.id;
-                const link = e.target.dataset.link;
+        // Helper function for relative time
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " years ago";
+            
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " months ago";
+            
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " days ago";
+            
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " hours ago";
+            
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            
+            return "Just now";
+        }
 
-                fetch(`/api/mark_notification_read/${notifId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
+        // Mark notification as read
+        function markNotificationAsRead(notifId, link, element) {
+            fetch(`/api/mark_notification_read/${notifId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(async res => {
+                const text = await res.text();
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        element.classList.remove("unread");
+
+                        let count = parseInt(notifBadge.innerText || "0") - 1;
+                        notifBadge.innerText = count > 0 ? count : '';
+                        if (count <= 0) notifBadge.style.display = "none";
+
+                        setTimeout(() => {
+                            window.location.href = `${link}?notif_id=${notifId}`;
+                        }, 150);
                     }
-                })
-                .then(async res => {
-                    const text = await res.text();
-                    try {
-                        const data = JSON.parse(text);
-                        if (data.success) {
-                            e.target.closest(".alert").classList.remove("unread-notification");
+                } catch (err) {
+                    console.error("❌ Failed to parse JSON:", text);
+                }
+            });
+        }
 
-                            let count = parseInt(notifBadge.innerText || "0") - 1;
-                            notifBadge.innerText = count > 0 ? count : '';
-                            if (count <= 0) notifBadge.style.display = "none";
+        // Dismiss notification
+        function dismissNotification(notifId, element) {
+            element.style.animation = "notifSlideOut 0.3s ease";
+            element.style.opacity = "0";
+            element.style.transform = "translateX(100%)";
+            
+            setTimeout(() => {
+                element.remove();
+                
+                // Update badge count if it was unread
+                if (element.classList.contains("unread")) {
+                    let count = parseInt(notifBadge.innerText || "0") - 1;
+                    notifBadge.innerText = count > 0 ? count : '';
+                    if (count <= 0) notifBadge.style.display = "none";
+                }
 
-                            setTimeout(() => {
-                                window.location.href = `${link}?notif_id=${notifId}`;
-                            }, 150);
+                // Show "no notifications" if empty
+                if (container.children.length === 0) {
+                    container.innerHTML = '<p id="noNotifs">No new notifications</p>';
+                }
+            }, 300);
+        }
+
+        // Mark all notifications as read
+        const markAllReadBtn = document.getElementById("markAllReadBtn");
+        if (markAllReadBtn) {
+            markAllReadBtn.addEventListener("click", () => {
+                const unreadNotifs = container.querySelectorAll(".notification-item.unread");
+                
+                if (unreadNotifs.length === 0) return;
+
+                // Visual feedback
+                markAllReadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                
+                // Mark all as read
+                unreadNotifs.forEach(notif => {
+                    const notifId = notif.getAttribute("data-id");
+                    fetch(`/api/mark_notification_read/${notifId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
                         }
-                    } catch (err) {
-                        console.error("❌ Failed to parse JSON:", text);
-                    }
+                    });
+                    notif.classList.remove("unread");
                 });
-            }
-        });
+
+                // Update badge
+                notifBadge.style.display = "none";
+                notifBadge.innerText = '';
+
+                // Reset button
+                setTimeout(() => {
+                    markAllReadBtn.innerHTML = 'Mark all read';
+                }, 500);
+            });
+        }
     });
 });
 

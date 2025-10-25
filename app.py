@@ -26,6 +26,7 @@ from flask_socketio import SocketIO, join_room
 from sqlalchemy import func
 import uuid
 from flask import send_from_directory
+import re
 
 ATTACHMENT_UPLOAD_FOLDER = 'static/chat_attachments'
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static/profile_pics')
@@ -60,6 +61,45 @@ mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 
+# Helper function to emit notifications with sender info
+def emit_notification(notification):
+    """
+    Emit a notification via SocketIO with sender profile information.
+    
+    Args:
+        notification: Notification object from database
+    """
+    sender_profile_pic = None
+    sender_name = None
+    
+    if notification.sender_id:
+        sender = User.query.get(notification.sender_id)
+        if sender:
+            sender_profile_pic = sender.profile_picture or '/static/profile_pics/default.jpg'
+            sender_name = sender.username
+    
+    # Determine recipient and room
+    if notification.recipient_id:
+        recipient_id = notification.recipient_id
+        room = str(notification.recipient_id)
+    elif notification.admin_recipient_id:
+        recipient_id = notification.admin_recipient_id
+        room = str(notification.admin_recipient_id)
+    else:
+        return  # No recipient
+    
+    socketio.emit('new_notification', {
+        'recipient_id': recipient_id,
+        'admin_recipient_id': notification.admin_recipient_id,
+        'message': notification.message,
+        'link': notification.link,
+        'notif_id': notification.id,
+        'sender_profile_pic': sender_profile_pic,
+        'sender_name': sender_name,
+        'timestamp': notification.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    }, room=room)
+
+
 @app.route('/')
 def home():
     if 'user_id' in session:
@@ -67,6 +107,14 @@ def home():
         if user:
             return redirect(url_for('news_feed', username=user.username))  # ✅ Pass username
     return render_template('home.html')
+
+
+def highlight_match(text, query):
+    # Case-insensitive bolding of the matched substring
+    if not text or not query:
+        return text
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    return pattern.sub(lambda m: f"<b>{m.group(0)}</b>", text)
 
 def get_dynamic_search_results(query):
     # Find users matching username or name
@@ -106,12 +154,24 @@ def get_dynamic_search_results(query):
     blood_requests_data = []
     for br in blood_request_results:
         creator = br.user
+        # Determine what field matched
+        match_field = None
+        if query.lower() in (br.patient_name or '').lower():
+            match_field = "patient_name"
+        elif query.lower() in (br.reason or '').lower():
+            match_field = "reason"
+        # Add more fields as needed
         blood_requests_data.append({
             'id': br.id,
-            'patient_name': br.patient_name,
-            'reason': br.reason,
+            'patient_name': highlight_match(br.patient_name, query),
+            'reason': highlight_match(br.reason, query),
+            'blood_group': br.blood_group,
+            'location': br.location,
+            'date_needed': br.required_date.strftime('%Y-%m-%d') if br.required_date else None,
+            'status': br.status,
             'creator_username': creator.username,
-            'creator_profile_picture': creator.profile_picture or "default.jpg"
+            'creator_profile_picture': creator.profile_picture or "default.jpg",
+            'matched_field': match_field
         })
 
     return users_data, blood_requests_data
@@ -135,13 +195,11 @@ def inject_chat_users():
         # Get all user IDs involved in messages with current user
         messaged_user_ids = db.session.query(ChatMessage.sender_id).filter(ChatMessage.receiver_id == current_user_id)
         received_user_ids = db.session.query(ChatMessage.receiver_id).filter(ChatMessage.sender_id == current_user_id)
-
         related_user_ids = messaged_user_ids.union(received_user_ids).subquery()
 
-        # Get the actual user objects
         chat_users = User.query.filter(User.id.in_(db.select(related_user_ids))).all()
 
-        # Get unread message counts per user
+        # Unread message counts per user
         unread_counts = db.session.query(
             ChatMessage.sender_id,
             func.count().label("count")
@@ -149,26 +207,48 @@ def inject_chat_users():
             ChatMessage.receiver_id == current_user_id,
             ChatMessage.is_read == False
         ).group_by(ChatMessage.sender_id).all()
-
         unread_dict = {uid: count for uid, count in unread_counts}
 
-        # Attach unread_count to each user (build as dicts instead of model objects)
+        # Get latest message per user
+        latest_messages = db.session.query(
+            ChatMessage.sender_id,
+            func.max(ChatMessage.id).label("msg_id")
+        ).filter(
+            (ChatMessage.receiver_id == current_user_id) | (ChatMessage.sender_id == current_user_id)
+        ).group_by(ChatMessage.sender_id).all()
+        latest_msg_ids = [msg_id for _, msg_id in latest_messages]
+        latest_msgs = ChatMessage.query.filter(ChatMessage.id.in_(latest_msg_ids)).all()
+        latest_msg_dict = {msg.sender_id: msg for msg in latest_msgs}
+
         users = []
         for user in chat_users:
+            latest_msg = latest_msg_dict.get(user.id)
+            if latest_msg:
+                # Determine preview text
+                if latest_msg.attachments:
+                    preview = "sent an attachment"
+                elif latest_msg.images:
+                    preview = "sent an image"
+                else:
+                    preview = latest_msg.content[:30] + ("..." if len(latest_msg.content) > 30 else "")
+                is_unread = not latest_msg.is_read and latest_msg.receiver_id == current_user_id
+            else:
+                preview = ""
+                is_unread = False
+
             users.append({
                 'id': user.id,
                 'username': user.username,
                 'profile_pic': url_for('static', filename='profile_pics/' + (user.profile_picture or 'default.jpg')),
-
-                'unread_count': unread_dict.get(user.id, 0)
+                'unread_count': unread_dict.get(user.id, 0),
+                'preview': preview,
+                'is_unread': is_unread,
             })
 
-        # Calculate total unread count (for badge on "Chat")
         total_unread_count = sum(unread_dict.values())
-
         return dict(users=users, total_unread_count=total_unread_count)
-
     return dict(users=[], total_unread_count=0)
+
 
 
 @socketio.on('join')
@@ -222,6 +302,7 @@ def handle_send_message(data):
     receiver_id = data.get("receiver_id")
     content = data.get("content")
     sender_username = session.get("username")
+    
 
     if not sender_id or not receiver_id or not content:
         return
@@ -237,10 +318,35 @@ def handle_send_message(data):
         "timestamp": msg.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
         "is_read": False
     }, room=str(receiver_id))
+    sender_user = User.query.get(sender_id)
+
+    # Get the latest message between these two users
+    latest_message = ChatMessage.query.filter(
+        ((ChatMessage.sender_id == sender_id) & (ChatMessage.receiver_id == receiver_id)) |
+        ((ChatMessage.sender_id == receiver_id) & (ChatMessage.receiver_id == sender_id))
+    ).order_by(ChatMessage.timestamp.desc()).first()
+
+    # Determine preview text
+    preview = ""
+    if latest_message:
+        if latest_message.images:
+            preview = "sent an image"
+        elif latest_message.attachments:
+            preview = "sent an attachment"
+        else:
+            preview = latest_message.content[:30] + ("..." if len(latest_message.content) > 30 else "")
+
+    # Unread if the latest message is not read and is addressed to the receiver
+    is_unread = latest_message and not latest_message.is_read and latest_message.receiver_id == receiver_id
+
     socketio.emit("new_chat_notification", {
         "sender_id": sender_id,
-        "sender_username": sender_username
+        "sender_username": sender_user.username if sender_user else "",
+        "profile_pic": url_for('static', filename='profile_pics/' + (sender_user.profile_picture or 'default.jpg')) if sender_user else "",
+        "preview": preview,
+        "is_unread": is_unread
     }, room=f"user_{receiver_id}")
+
 
 @socketio.on("send_image")
 def handle_send_image(data):
@@ -286,9 +392,33 @@ def handle_send_image(data):
             "filename": filename,
             "timestamp": datetime.now().astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         }, room=str(receiver_id))
+        sender_user = User.query.get(sender_id)
+
+        # Get the latest message between these two users
+        latest_message = ChatMessage.query.filter(
+            ((ChatMessage.sender_id == sender_id) & (ChatMessage.receiver_id == receiver_id)) |
+            ((ChatMessage.sender_id == receiver_id) & (ChatMessage.receiver_id == sender_id))
+        ).order_by(ChatMessage.timestamp.desc()).first()
+
+        # Determine preview text
+        preview = ""
+        if latest_message:
+            if latest_message.images:
+                preview = "sent an image"
+            elif latest_message.attachments:
+                preview = "sent an attachment"
+            else:
+                preview = latest_message.content[:30] + ("..." if len(latest_message.content) > 30 else "")
+
+        # Unread if the latest message is not read and is addressed to the receiver
+        is_unread = latest_message and not latest_message.is_read and latest_message.receiver_id == receiver_id
+
         socketio.emit("new_chat_notification", {
             "sender_id": sender_id,
-            "sender_username": sender_username
+            "sender_username": sender_user.username if sender_user else "",
+            "profile_pic": url_for('static', filename='profile_pics/' + (sender_user.profile_picture or 'default.jpg')) if sender_user else "",
+            "preview": preview,
+            "is_unread": is_unread
         }, room=f"user_{receiver_id}")
         
     except Exception as e:
@@ -371,12 +501,35 @@ def handle_send_attachment(data):
         print(f"Attachment sent to receiver {receiver_id}")
         
         # Send notification
+        sender_user = User.query.get(sender_id)
+
+        # Get the latest message between these two users
+        latest_message = ChatMessage.query.filter(
+            ((ChatMessage.sender_id == sender_id) & (ChatMessage.receiver_id == receiver_id)) |
+            ((ChatMessage.sender_id == receiver_id) & (ChatMessage.receiver_id == sender_id))
+        ).order_by(ChatMessage.timestamp.desc()).first()
+
+        # Determine preview text
+        preview = ""
+        if latest_message:
+            if latest_message.images:
+                preview = "sent an image"
+            elif latest_message.attachments:
+                preview = "sent an attachment"
+            else:
+                preview = latest_message.content[:30] + ("..." if len(latest_message.content) > 30 else "")
+
+        # Unread if the latest message is not read and is addressed to the receiver
+        is_unread = latest_message and not latest_message.is_read and latest_message.receiver_id == receiver_id
+
         socketio.emit("new_chat_notification", {
             "sender_id": sender_id,
-            "sender_username": sender_username
+            "sender_username": sender_user.username if sender_user else "",
+            "profile_pic": url_for('static', filename='profile_pics/' + (sender_user.profile_picture or 'default.jpg')) if sender_user else "",
+            "preview": preview,
+            "is_unread": is_unread
         }, room=f"user_{receiver_id}")
-        
-       
+              
         
     except Exception as e:
         print(f"Attachment error: {str(e)}")
@@ -842,12 +995,10 @@ def donor_response(request_id):
         )
         db.session.add(notification)
         db.session.commit()
-        socketio.emit('new_notification', {
-            'recipient_id': notification.recipient_id,
-            'message': notification.message,
-            'link': notification.link,
-            'notif_id': notification.id
-        }, room=str(notification.recipient_id))
+        
+        # Emit notification with sender info
+        emit_notification(notification)
+        
         return jsonify({
             "status": "success",
             "message": "You have been assigned as a donor.",
@@ -1005,12 +1156,7 @@ def send_friend_request():
     db.session.commit()
 
     # Emit real-time notification
-    socketio.emit('new_notification', {
-        'recipient_id': receiver_id,
-        'message': notification.message,
-        'link': notification.link,
-        'notif_id': notification.id
-    }, room=str(receiver_id))
+    emit_notification(notification)
 
     return jsonify({"success": True, "message": "Friend request sent."})
 
@@ -1061,12 +1207,8 @@ def handle_friend_request(request_id):
         db.session.add(notification)
         db.session.commit()
 
-        socketio.emit('new_notification', {
-            'recipient_id': sender.id,
-            'message': notification.message,
-            'link': notification.link,
-            'notif_id': notification.id
-        }, room=str(sender.id))
+        # Emit notification
+        emit_notification(notification)
 
         msg = "Friend request accepted."
 
@@ -1570,18 +1712,11 @@ def refer_donor():
         print("Failed to send email:", e)
 
     db.session.commit()
-    socketio.emit('new_notification', {
-            'recipient_id': donor_notif.recipient_id,
-            'message': donor_notif.message,
-            'link': donor_notif.link,
-            'notif_id': donor_notif.id
-        }, room=str(donor_notif.recipient_id))
-    socketio.emit('new_notification', {
-            'recipient_id': creator_notif.recipient_id,
-            'message': creator_notif.message,
-            'link': creator_notif.link,
-            'notif_id': creator_notif.id
-        }, room=str(creator_notif.recipient_id))
+    
+    # Emit notifications
+    emit_notification(donor_notif)
+    emit_notification(creator_notif)
+
     return jsonify({"message": "Referral successful. Notifications and email sent."})
 
 @app.route('/api/notifications')
@@ -1600,13 +1735,27 @@ def get_notifications():
     else:
         return jsonify({"notifications": []})
 
-    notif_list = [{
-        'id': n.id,
-        'message': n.message,
-        'link': n.link,
-        'is_read': n.is_read,
-        'timestamp': n.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-    } for n in notifications]
+    notif_list = []
+    for n in notifications:
+        sender_profile_pic = None
+        sender_name = None
+        
+        # Get sender info if available
+        if n.sender_id:
+            sender = User.query.get(n.sender_id)
+            if sender:
+                sender_profile_pic = sender.profile_picture or '/static/profile_pics/default.jpg'
+                sender_name = sender.username
+        
+        notif_list.append({
+            'id': n.id,
+            'message': n.message,
+            'link': n.link,
+            'is_read': n.is_read,
+            'timestamp': n.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            'sender_profile_pic': sender_profile_pic,
+            'sender_name': sender_name
+        })
 
     return jsonify({"notifications": notif_list})
 
@@ -1699,12 +1848,7 @@ def report_post():
         db.session.flush()  # Assigns notif.id before commit
 
         # Emit real-time notification to the admin
-        socketio.emit('new_notification', {
-            'admin_recipient_id': admin.admin_id,
-            'message': notif.message,
-            'link': notif.link,
-            'notif_id': notif.id
-        },  room=str(notif.admin_recipient_id))  # optional namespace
+        emit_notification(notif)
 
     db.session.commit()
 
@@ -1858,12 +2002,7 @@ def upvote_request(post_id):
             db.session.commit()
 
             # 🔴 Emit notification using Socket.IO
-            socketio.emit('new_notification', {
-                'recipient_id': post_owner.id,
-                'message': message,
-                'link': notification.link,
-                'notif_id': notification.id
-            }, room=str(post_owner.id))
+            emit_notification(notification)
 
     return jsonify({"success": True, "upvotes": blood_request.upvote_count})
 
@@ -2022,12 +2161,7 @@ def add_comment(request_id):
         db.session.commit()
 
         # Real-time notification
-        socketio.emit('new_notification', {
-            'recipient_id': notification.recipient_id,
-            'message': notification.message,
-            'link': notification.link,
-            'notif_id': notification.id
-        }, room=str(notification.recipient_id))
+        emit_notification(notification)
 
 
     return jsonify({"success": True})

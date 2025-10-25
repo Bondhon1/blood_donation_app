@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Login - LifeDrop{% endblock %}
 {% block content %}
 
-<div class="form-container">
+<div class="form-container animate-fade-in">
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -14,12 +14,19 @@
     {% endif %}
     {% endwith %}
 
-    <h2 class="text-center">Login</h2>
+    <div class="text-center mb-4">
+        <div class="login-icon-wrapper">
+            <i class="fas fa-heartbeat text-danger"></i>
+        </div>
+        <h2 class="fw-bold">Welcome Back</h2>
+        <p class="text-muted">Sign in to continue saving lives</p>
+    </div>
+    
     <form method="POST" class="needs-validation" novalidate id="loginForm">
         {{ form.hidden_tag() }}
 
         <div class="mb-3">
-            <label class="form-label">{{ form.email.label }}</label>
+            <label class="form-label fw-semibold">{{ form.email.label }}</label>
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                 {{ form.email(class="form-control", placeholder="Enter your email") }}
@@ -27,7 +34,7 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label">{{ form.password.label }}</label>
+            <label class="form-label fw-semibold">{{ form.password.label }}</label>
             <div class="input-group">
                 <span class="input-group-text"><i class="fas fa-lock"></i></span>
                 {{ form.password(class="form-control", placeholder="Enter your password") }}
@@ -38,16 +45,20 @@
         </div>
 
         <!-- Loading spinner -->
-        <div id="loadingSpinner" class="text-center d-none">
-            <div class="spinner-border text-primary" role="status">
+        <div id="loadingSpinner" class="text-center d-none my-3">
+            <div class="spinner-border text-danger" role="status">
                 <span class="visually-hidden">Loading...</span>
             </div>
-            <p>Getting location...</p>
+            <p class="mt-2 text-muted">Getting location...</p>
         </div>
 
-        <button type="submit" id="loginBtn" class="btn btn-primary btn-animated w-100" disabled>
-            <i class="fas fa-sign-in-alt"></i> Login
+        <button type="submit" id="loginBtn" class="btn btn-danger btn-animated w-100 py-3 mt-3" disabled>
+            <i class="fas fa-sign-in-alt me-2"></i>Login to LifeDrop
         </button>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted">Don't have an account? <a href="{{ url_for('register') }}" class="text-danger fw-semibold">Register here</a></p>
+        </div>
     </form>
 </div>
 

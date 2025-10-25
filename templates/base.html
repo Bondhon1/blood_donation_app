@@ -4,18 +4,22 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="description" content="Blood Donation System - Connect donors with those in need. Save lives through blood donation.">
+        <meta name="theme-color" content="#e63946">
         
-
         <title>{% block title %}Blood Donation System{% endblock %}</title>
     
         <!-- Favicon (Title Bar Logo) -->
         <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
     
+        <!-- Google Fonts - Modern Typography -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
         <!-- Bootstrap CSS -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-        
     
         <!-- Custom CSS -->
         <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
@@ -25,97 +29,94 @@
     
         <!-- jQuery -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        <!-- Emoji Button CDN -->
-        <!-- Working UMD version of Emoji Button -->
-
-
     </head>
     
     <body>
         <header>
-            <nav class="navbar navbar-expand-lg navbar-dark bg-danger fixed-top">
-                <div class="container-fluid d-flex align-items-center justify-content-between px-2">
-                    <a class="navbar-brand d-flex align-items-center me-2" href="{{ url_for('home') }}">
-                        <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo" height="40">
-                        {% if not session.get('user_id') and not session.get('admin_username') %}
-                            <span class="ms-2 fw-bold text-white d-none d-sm-inline">LifeDrop</span>
-                        {% endif %}
-                    </a>
-    
-                    <!-- Responsive Login & Register (Without Burger Button) -->
-                    <div class="ms-auto d-flex align-items-center">
-                        {% if not session.get('user_id') and not session.get('admin_username') %}
-                            <a href="{{ url_for('login') }}" class="btn btn-light me-2 d-inline-block d-md-none">Login</a>
-                            <a href="{{ url_for('register') }}" class="btn btn-outline-light me-2 d-inline-block d-md-none">Register</a>
-                        {% endif %}
-                    </div>
-                    <!-- Center: Search Bar (only if logged in) -->
-                    
-                    {% if session.get('user_id') or session.get('admin_username') %}
-                            
-                            <div class="search-container" style="display:inline-block; position:relative;">
-                                <input type="text" id="searchBoxMobile" class="form-control form-control-sm me-2" placeholder="Search..." style="max-width: 140px;">
-                                <div id="searchResults" class="search-popup d-none"></div>
-                            </div>
-
-                    {% endif %}
-                    <!-- Right: Mobile Search + Menu -->
-                    <div class="d-flex d-sm-none align-items-center ms-auto">
+            <nav class="navbar navbar-dark bg-danger fixed-top">
+                <div class="container-fluid">
+                    <!-- LEFT GROUP: Logo + Search + Toggle -->
+                    <div class="navbar-left-group">
+                        <!-- Logo -->
+            <a class="navbar-brand" href="{{ url_for('home') }}">
+              <img src="{{ url_for('static', filename='logo.png') }}" alt="Blood Donation Logo">
+              <span class="brand-text">LifeDrop</span>
+                        </a>
                         
-                        <button class="btn btn-outline-light btn-sm" id="mobileMenuToggle">
-                            <i class="fas fa-bars"></i>
+                        <!-- Search Bar (only if logged in) -->
+                        {% if session.get('user_id') or session.get('admin_username') %}
+                        <div class="search-container">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="form-control navbar-search" id="searchBoxMobile" placeholder="Search people or requests...">
+                            <div id="searchResults" class="search-popup d-none"></div>
+                        </div>
+                        
+                        <!-- Custom Mobile Menu Toggle -->
+                        <button class="custom-toggler collapsed" type="button" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="toggler-icon"></span>
+                            <span class="toggler-icon"></span>
+                            <span class="toggler-icon"></span>
                         </button>
+                        {% endif %}
                     </div>
 
-                    <!-- Navbar Links -->
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav ms-auto">
-                            {% if session.get('user_id') or session.get('admin_username') %}
-                                <li class="nav-item">
-                                    <button class="btn btn-outline-light me-2" onclick="location.reload()">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="{{ url_for('news_feed', username=session.get('username', session.get('admin_username', ''))) }}"
-                                    class="btn btn-outline-light me-2 nav-link">
-                                        <i class="fas fa-newspaper"></i>
-                                        <span class="hide-on-mobile"> News Feed</span>
+                    <!-- RIGHT GROUP: Navigation Buttons -->
+                    {% if session.get('user_id') or session.get('admin_username') %}
+                    <div class="navbar-right-group collapse" id="navbarNav">
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                <a href="{{ url_for('news_feed', username=session.get('username', session.get('admin_username', ''))) }}"
+                class="btn btn-outline-light nav-link">
+                  <i class="fas fa-newspaper"></i>
                                 </a>
                                 </li>
 
                                 <li class="nav-item">
-                                    <a href="#" class="btn btn-outline-light me-2 nav-link">
-                                        <i class="fas fa-user-md"></i> 
-                                        <span class="hide-on-mobile"> Doctor’s Help</span>
+                  <a href="#" class="btn btn-outline-light nav-link">
+                    <i class="fas fa-user-md"></i> 
                                     </a>
                                 </li>
                                 {% if session.get('username') %}
                                 <li class="nav-item dropdown">
                                   <a class="nav-link position-relative" data-bs-toggle="dropdown" role="button">
                                     <i class="fas fa-message"></i>
-                                    <span class="hide-on-mobile">Chat</span>
                                     <span id="totalUnreadBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger {{ 'd-none' if total_unread_count == 0 }}">
                                       {{ total_unread_count }}
                                     </span>
                                   </a>
 
 
-                                  <ul class="dropdown-menu dropdown-menu-end" style="max-height: 300px; overflow-y: auto;">
+                                  <ul class="dropdown-menu dropdown-menu-end">
+                                    <div class="chat-dropdown-header">
+                                      <h6><i class="fas fa-message me-2"></i>Messages</h6>
+                                    </div>
                                     {% for user in users %}
                                       <li>
-                                        <a class="dropdown-item d-flex justify-content-between align-items-center"
+                                        <a class="dropdown-item chat-dropdown-item {% if user.is_unread %}unread{% endif %}"
                                           href="#"
                                           onclick="event.preventDefault(); openChatModal({{ user.id }}, '{{ user.username }}', '{{ user.profile_pic }}')"
                                           id="userChat-{{ user.id }}">
-                                          {{ user.username }}
-                                          <span class="badge bg-danger {% if user.unread_count == 0 %}d-none{% endif %}">{{ user.unread_count }}</span>
+                                          <div class="chat-avatar">
+                                            {% if user.profile_pic and user.profile_pic != '/static/profile_pics/default.png' %}
+                                              <img src="{{ user.profile_pic }}" alt="{{ user.username }}">
+                                            {% else %}
+                                              <div class="default-avatar">
+                                                {{ user.username[0].upper() }}
+                                              </div>
+                                            {% endif %}
+                                          </div>
+                                          <div class="chat-content">
+                                            <div class="chat-user-name">
+                                              <span>{{ user.username }}</span>
+                                              <span class="badge bg-danger {% if user.unread_count == 0 %}d-none{% endif %}">{{ user.unread_count }}</span>
+                                            </div>
+                                            <div class="chat-preview">{{ user.preview }}</div>
+                                          </div>
                                         </a>
                                       </li>
-                                      {% endfor %}
-
-
+                                    {% endfor %}
                                   </ul>
+
                                 </li>
                                 {% endif %}
 
@@ -123,11 +124,17 @@
     
                                 <!-- Notifications -->
                                 <li class="nav-item">
-                                    <button class="btn btn-outline-light me-2 position-relative" id="notifBtn">
+                                    <button class="btn btn-outline-light position-relative" id="notifBtn">
                                         <i class="fas fa-bell"></i>
                                         <span class="badge bg-danger position-absolute top-0 start-100 translate-middle" id="notifBadge" style="display: none;">0</span>
                                     </button>
                                     <div id="notifPopup" class="dropdown-popup">
+                                        <div class="notifications-header">
+                                            <h6><i class="fas fa-bell me-2"></i>Notifications</h6>
+                                            <button class="mark-all-read-btn" id="markAllReadBtn">
+                                                Mark all read
+                                            </button>
+                                        </div>
                                         <div class="notifications-container" id="notifContainer">
                                             <p id="noNotifs">No new notifications</p>
                                         </div>
@@ -138,7 +145,7 @@
     
                                 <!-- Profile Dropdown -->
                                 <li class="nav-item">
-                                    <button class="btn btn-outline-light me-2" id="profileBtn">
+                                    <button class="btn btn-outline-light" id="profileBtn">
                                         <i class="fas fa-user"></i>
                                     </button>
                                     <div id="profilePopup" class="dropdown-popup">
@@ -160,25 +167,24 @@
                                         {% endif %}
                                     </div>
                                 </li>
-                            {% else %}
-                                <!-- Large Screen Login/Register -->
-                                <li class="nav-item hide-on-mobile">
-                                  <div class="d-flex flex-column flex-md-row">
-                                    <a href="{{ url_for('login') }}" class="btn btn-light me-md-2 mb-1 mb-md-0">Login</a>
-                                    <a href="{{ url_for('register') }}" class="btn btn-outline-light">Register</a>
-                                  </div>
-                                </li>
-
-                            {% endif %}
                             <!-- Dark Mode Toggle -->
                             <li class="nav-item">
-                                <button class="btn btn-outline-light me-2" id="darkModeToggle">
+                                <button class="btn btn-outline-light" id="darkModeToggle">
                                     <i class="fas fa-moon"></i>
                                 </button>
                             </li>
-
                         </ul>
-                    </div> <!-- End Collapse -->
+                    </div>
+                    {% else %}
+          <!-- Login/Register buttons for non-logged users -->
+          <div class="navbar-guest-group">
+            <a href="{{ url_for('login') }}" class="btn btn-light">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-outline-light">Register</a>
+            <button class="btn btn-outline-light" id="darkModeToggle">
+              <i class="fas fa-moon"></i>
+            </button>
+          </div>
+                    {% endif %}
                 </div>
             </nav>
         </header>
@@ -355,8 +361,15 @@ socket.on("receive_message", (data) => {
   });
   // When server notifies a new chat message from unknown or inactive user
   socket.on("new_chat_notification", (data) => {
-    showNewMessageNotification(data.sender_id, data.sender_username);
+      showNewMessageNotification(
+          data.sender_id,
+          data.sender_username,
+          data.profile_pic,
+          data.preview,
+          data.is_unread
+      );
   });
+
   let chatModalOpen = false;
   let openChatUserId = null;
   let activeChatUserId = null;
@@ -541,30 +554,49 @@ socket.on("receive_message", (data) => {
     }
   }
 
-  function showNewMessageNotification(senderId, senderUsername) {
+  function showNewMessageNotification(senderId, senderUsername, profilePic, preview, isUnread) {
     let userEntry = document.getElementById(`userChat-${senderId}`);
 
     if (!userEntry) {
-      const dropdown = document.querySelector(".dropdown-menu");
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <a class="dropdown-item d-flex justify-content-between align-items-center" href="#" onclick="openChatModal(${senderId}, '${senderUsername}')" id="userChat-${senderId}">
-          ${senderUsername}
-          <span class="badge bg-danger">1</span>
-        </a>
-      `;
-      dropdown.prepend(li);
+        const dropdown = document.querySelector(".dropdown-menu");
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <a class="dropdown-item d-flex align-items-center"
+               href="#"
+               onclick="openChatModal(${senderId}, '${senderUsername}', '${profilePic}')"
+               id="userChat-${senderId}">
+                <img src="${profilePic}" alt="Profile" class="rounded-circle me-2" width="32" height="32">
+                <div class="flex-grow-1">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span>${senderUsername}</span>
+                    <span class="badge bg-danger">1</span>
+                  </div>
+                  <small class="${isUnread ? 'fw-bold' : ''} text-muted">
+                    ${preview}
+                  </small>
+                </div>
+            </a>
+        `;
+        dropdown.prepend(li);
     } else {
-      const badge = userEntry.querySelector('.badge');
-      if (badge) {
-        badge.classList.remove("d-none");
-        let count = parseInt(badge.textContent) || 0;
-        badge.textContent = count + 1;
-      }
+        // Update badge and preview
+        const badge = userEntry.querySelector('.badge');
+        if (badge) {
+            badge.classList.remove("d-none");
+            let count = parseInt(badge.textContent) || 0;
+            badge.textContent = count + 1;
+        }
+        const previewElem = userEntry.querySelector('small');
+        if (previewElem) {
+            previewElem.textContent = preview;
+            if (isUnread) previewElem.classList.add('fw-bold');
+            else previewElem.classList.remove('fw-bold');
+        }
     }
 
     updateTotalUnreadBadge();
-  }
+}
+
   const defaultZoom = 1;
 
   function applyZoom(scale) {
